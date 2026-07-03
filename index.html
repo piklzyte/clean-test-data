@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hiring Pipeline Health — All Roles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #F3F4F5;
+    --surface:   #FFFFFF;
+    --surface2:  #F3F4F5;
+    --border:    rgba(5,12,77,0.08);
+    --border2:   rgba(5,12,77,0.14);
+    --text:      #050C4D;
+    --text2:     #3D4D66;
+    --text3:     #8891A5;
+    --accent:    #3F4FED;
+    --accent-bg: rgba(63,79,237,0.08);
+    --accent-glow: rgba(63,79,237,0.22);
+    --brand:     #DB005F;
+    --green:     #56961A; --green-bg: #E8F5DC; --green-txt: #3B6D11;
+    --amber:     #EF9F27; --amber-bg: #FEF3E2; --amber-txt: #92540C;
+    --red:       #E24B4A; --red-bg:   #FDECEC; --red-txt:   #A82828;
+    --grey:      #9AA1AE; --grey-bg:  #F1EFE8; --grey-txt:  #5F5E5A;
+    --radius:    16px;
+    --radius-sm: 10px;
+    --ease:      cubic-bezier(.4,0,.2,1);
+    --shadow-xs: 0 1px 2px rgba(5,12,77,0.045);
+    --shadow:    0 1px 2px rgba(5,12,77,0.04), 0 4px 14px rgba(5,12,77,0.05);
+    --shadow-md: 0 6px 20px rgba(5,12,77,0.09), 0 1px 3px rgba(5,12,77,0.06);
+    --shadow-lg: 0 20px 48px rgba(5,12,77,0.14), 0 4px 14px rgba(5,12,77,0.07);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background:
+      radial-gradient(760px 420px at 8% -8%, rgba(63,79,237,0.06), transparent 60%),
+      radial-gradient(680px 380px at 100% 0%, rgba(219,0,95,0.045), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text);
+    padding: 0;
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: rgba(255,255,255,0.82);
+    box-shadow: 0 1px 0 rgba(5,12,77,0.06), 0 8px 24px rgba(5,12,77,0.04);
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 48px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  }
+  .topbar-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .topbar-logo {
+    width: 24px; height: 24px; background: linear-gradient(135deg, var(--accent), var(--brand));
+    border-radius: 7px; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #fff; letter-spacing: -0.5px;
+    box-shadow: 0 3px 10px rgba(63,79,237,0.35);
+  }
+  .topbar-title { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; white-space: nowrap; }
+  .topbar-meta { font-size: 11px; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
+  .topbar-divider { width: 1px; height: 18px; background: var(--border2); flex-shrink: 0; }
+  @media (max-width: 1180px) {
+    .topbar-meta { display: none; }
+  }
+
+  /* ── Tab strip ── */
+  .tabs {
+    display: flex;
+    gap: 1px;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: rgba(5,12,77,0.035);
+    padding: 3px;
+    border-radius: 9px;
+    min-width: 0;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    font-size: 11.5px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.18s var(--ease), color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+    letter-spacing: 0.005em;
+  }
+  .tab:hover { background: rgba(5,12,77,0.05); color: var(--text); }
+  .tab.active { background: var(--surface); color: var(--accent); font-weight: 600; box-shadow: 0 2px 6px rgba(5,12,77,0.08); }
+
+  /* ── Page body ── */
+  .container { max-width: 900px; margin: 0 auto; padding: 28px 24px 48px; }
+
+  /* ── Views ── */
+  .view { display: none; animation: fadeIn 0.18s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* ── How it works ── */
+  .how-it-works {
+    background: var(--surface);
+    border: 1px solid rgba(5,12,77,0.05);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: auto 1fr 1fr 1fr;
+    gap: 0;
+    align-items: stretch;
+    box-shadow: var(--shadow-xs);
+  }
+  .hiw-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--text3); writing-mode: vertical-lr; transform: rotate(180deg);
+    padding-right: 16px; border-right: 1px solid var(--border2); margin-right: 20px;
+    display: flex; align-items: center;
+  }
+  .hiw-step { padding: 0 16px; border-right: 1px solid var(--border); }
+  .hiw-step:last-child { border-right: none; padding-right: 0; }
+  .hiw-num { font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 5px; }
+  .hiw-q   { font-size: 12.5px; font-weight: 600; color: var(--text); margin-bottom: 4px; line-height: 1.4; }
+  .hiw-desc { font-size: 11.5px; color: var(--text2); line-height: 1.5; }
+  @media (max-width:640px) {
+    .how-it-works { grid-template-columns: 1fr; }
+    .hiw-label { writing-mode: horizontal-tb; transform: none; padding: 0 0 12px; border-right: none; border-bottom: 1px solid var(--border2); margin: 0 0 16px; }
+    .hiw-step { padding: 12px 0; border-right: none; border-bottom: 1px solid var(--border); }
+    .hiw-step:last-child { border-bottom: none; }
+  }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px 3px 7px; border-radius: 99px;
+    font-size: 11.5px; font-weight: 600; white-space: nowrap;
+    font-family: 'Inter', sans-serif;
+    box-shadow: inset 0 0 0 1px rgba(5,12,77,0.04);
+  }
+  .badge-g   { background: var(--green-bg); color: var(--green-txt); }
+  .badge-a   { background: var(--amber-bg); color: var(--amber-txt); }
+  .badge-r   { background: var(--red-bg);   color: var(--red-txt); }
+  .badge-n   { background: var(--grey-bg);  color: var(--grey-txt); }
+  .badge-icon { font-size: 11px; line-height: 1; }
+
+  /* ── Stat cards ── */
+  .stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+  @media(max-width:580px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
+  .stat-card {
+    background: var(--surface); border: 1px solid rgba(5,12,77,0.05);
+    border-radius: var(--radius); padding: 18px;
+    box-shadow: var(--shadow-xs);
+    transition: box-shadow 0.22s var(--ease), transform 0.22s var(--ease);
+  }
+  .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .stat-label { font-size: 11px; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .06em; font-weight: 500; }
+  .stat-val   { font-size: 27px; font-weight: 700; line-height: 1; margin-bottom: 5px; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.02em; }
+  .stat-sub   { font-size: 11px; color: var(--text3); }
+
+  /* ── Callouts ── */
+  .callout {
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border: 1px solid transparent;
+    display: flex; gap: 12px; align-items: flex-start;
+    box-shadow: var(--shadow-xs);
+  }
+  .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .callout-body-wrap { flex: 1; }
+  .callout-r   { background: var(--red-bg);   border-color: rgba(226,75,74,0.18); border-left: 3px solid var(--red); }
+  .callout-g   { background: var(--green-bg); border-color: rgba(86,150,26,0.18); border-left: 3px solid var(--green); }
+  .callout-a   { background: var(--amber-bg); border-color: rgba(239,159,39,0.18); border-left: 3px solid var(--amber); }
+  .callout-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .callout-r .callout-title { color: var(--red-txt); }
+  .callout-g .callout-title { color: var(--green-txt); }
+  .callout-a .callout-title { color: var(--amber-txt); }
+  .callout-body { font-size: 12.5px; line-height: 1.6; }
+  .callout-r .callout-body { color: #8A3A3A; }
+  .callout-g .callout-body { color: #3F6B2E; }
+  .callout-a .callout-body { color: #8A6A1F; }
+
+  /* ── All roles table ── */
+  .legend { display: flex; gap: 16px; margin-bottom: 14px; font-size: 11px; color: var(--text3); flex-wrap: wrap; align-items: center; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .roles-table {
+    width: 100%; border-collapse: collapse;
+    background: var(--surface); border-radius: var(--radius);
+    overflow: hidden; border: 1px solid rgba(5,12,77,0.05); font-size: 12.5px;
+    box-shadow: var(--shadow);
+  }
+  .roles-table th {
+    padding: 11px 14px; text-align: left; background: rgba(5,12,77,0.025);
+    border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 600;
+    color: var(--text3); text-transform: uppercase; letter-spacing: .07em; white-space: nowrap;
+  }
+  .roles-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .roles-table tr:last-child td { border-bottom: none; }
+  .roles-table tr:hover td { background: rgba(5,12,77,0.03); }
+  .roles-table td.rname { font-weight: 600; font-size: 13px; color: var(--text); white-space: nowrap; }
+  .overall-wrap { display: flex; align-items: center; gap: 8px; }
+  .overall-bar-bg { width: 48px; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+  .overall-bar { height: 100%; border-radius: 2px; }
+  .overall-label { font-size: 11.5px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Ranked ── */
+  .rank-list { display: flex; flex-direction: column; gap: 8px; }
+  .rank-card {
+    background: var(--surface); border: 1px solid rgba(5,12,77,0.05);
+    border-radius: var(--radius); padding: 14px 16px;
+    cursor: pointer; box-shadow: var(--shadow-xs);
+    transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  }
+  .rank-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .rank-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .rank-name { font-size: 13.5px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+  .rank-overall { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px; font-family: 'JetBrains Mono', monospace; }
+  .rank-stages { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rank-stage { display: flex; flex-direction: column; gap: 3px; }
+  .rank-stage-lbl { font-size: 9.5px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; }
+
+  /* ── Detail ── */
+  .detail-select {
+    font-size: 13px; padding: 10px 14px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border2); background-color: var(--surface); color: var(--text);
+    width: 100%; margin-bottom: 16px; cursor: pointer; font-family: 'Inter', sans-serif;
+    appearance: none; box-shadow: var(--shadow-xs); transition: box-shadow .18s var(--ease), border-color .18s var(--ease);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238B92A5' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px;
+  }
+  .detail-select:hover { border-color: var(--border2); box-shadow: var(--shadow); }
+  .detail-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .detail-card { background: var(--surface); border: 1px solid rgba(5,12,77,0.05); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
+  .detail-name { font-size: 18px; font-weight: 700; margin-bottom: 3px; letter-spacing: -0.015em; }
+  .detail-meta { font-size: 12px; color: var(--text2); margin-bottom: 18px; }
+  .checks-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+  @media(max-width:520px) { .checks-grid { grid-template-columns: 1fr; } }
+  .check-box { border-radius: var(--radius-sm); padding: 14px; border: 1px solid transparent; transition: transform 0.2s var(--ease); }
+  .check-box:hover { transform: translateY(-1px); }
+  .check-box-g { background: var(--green-bg); border-color: rgba(86,150,26,0.25); }
+  .check-box-a { background: var(--amber-bg); border-color: rgba(239,159,39,0.25); }
+  .check-box-r { background: var(--red-bg);   border-color: rgba(226,75,74,0.25); }
+  .check-box-n { background: var(--grey-bg);  border-color: rgba(154,161,174,0.3); }
+  .check-icon  { font-size: 18px; margin-bottom: 8px; }
+  .check-stage { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+  .check-box-g .check-stage { color: var(--green); }
+  .check-box-a .check-stage { color: var(--amber); }
+  .check-box-r .check-stage { color: var(--red); }
+  .check-box-n .check-stage { color: var(--grey-txt); }
+  .check-status { font-size: 12.5px; font-weight: 600; margin-bottom: 5px; }
+  .check-box-g .check-status { color: var(--green-txt); }
+  .check-box-a .check-status { color: var(--amber-txt); }
+  .check-box-r .check-status { color: var(--red-txt); }
+  .check-box-n .check-status { color: var(--grey-txt); }
+  .check-text { font-size: 11.5px; line-height: 1.55; color: var(--text2); }
+  .pipeline-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--text3); margin-bottom: 12px; }
+  .funnel-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .f-label { font-size: 11.5px; color: var(--text2); width: 160px; flex-shrink: 0; text-align: right; }
+  .f-bar-bg { flex: 1; height: 18px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .f-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; min-width: 28px; }
+  .f-bar span { font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,0.9); font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Departments ── */
+  .dept-sub-tabs { display: flex; gap: 4px; margin-bottom: 16px; background: rgba(5,12,77,0.035); padding: 4px; border-radius: 11px; width: fit-content; }
+  .dst {
+    font-size: 12px; padding: 6px 14px; border-radius: 8px;
+    border: 1px solid transparent; background: transparent; color: var(--text2);
+    cursor: pointer; font-family: 'Inter', sans-serif; transition: all .18s var(--ease);
+  }
+  .dst:hover { background: rgba(5,12,77,0.05); color: var(--text); }
+  .dst.active { background: var(--surface); color: var(--accent); border-color: transparent; font-weight: 600; box-shadow: 0 2px 6px rgba(5,12,77,0.08); }
+  .dsv { display: none; }
+  .dsv.active { display: block; }
+  .dept-stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+  @media(max-width:580px) { .dept-stat-row { grid-template-columns: repeat(2,1fr); } }
+  .dept-card {
+    background: var(--surface); border: 1px solid rgba(5,12,77,0.05);
+    border-radius: var(--radius); margin-bottom: 8px; overflow: hidden;
+    box-shadow: var(--shadow-xs);
+    transition: box-shadow 0.2s var(--ease);
+  }
+  .dept-card:hover { box-shadow: var(--shadow); }
+  .dept-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; user-select: none; transition: background .15s; }
+  .dept-hdr:hover { background: rgba(5,12,77,0.025); }
+  .dept-l { display: flex; align-items: center; gap: 12px; }
+  .dept-ico { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; box-shadow: var(--shadow-xs); }
+  .dept-nm  { font-size: 13.5px; font-weight: 600; color: var(--text); }
+  .dept-sub-lbl { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .dept-r { display: flex; align-items: center; gap: 10px; }
+  .dept-chev { font-size: 13px; color: var(--text3); transition: transform .2s; display: inline-block; }
+  .dept-body { display: none; border-top: 1px solid var(--border); }
+  .dept-body.open { display: block; }
+  .dept-role-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 10px 64px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 8px; }
+  .dept-role-row:last-of-type { border-bottom: none; }
+  .drn { font-size: 12.5px; font-weight: 500; color: var(--text); }
+  .drp { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .drs { font-size: 9.5px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+  .dept-insight-box { padding: 12px 16px 12px 64px; background: rgba(5,12,77,0.035); border-top: 1px solid var(--border); font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .cmp-section { margin-bottom: 28px; }
+  .cmp-sec-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--text3); margin-bottom: 8px; }
+  .cmp-sec-q { font-size: 13.5px; font-weight: 600; color: var(--text); margin-bottom: 14px; }
+  .cmp-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .cmp-name { font-size: 12px; color: var(--text2); width: 140px; flex-shrink: 0; text-align: right; }
+  .cmp-track { flex: 1; height: 18px; background: var(--surface2); border-radius: 4px; position: relative; max-width: 280px; }
+  .cmp-bar  { height: 100%; border-radius: 4px; position: absolute; left: 0; top: 0; opacity: .85; }
+  .cmp-band { position: absolute; top: 0; height: 100%; background: rgba(5,12,77,0.06); border-left: 1px solid rgba(5,12,77,0.15); border-right: 1px solid rgba(5,12,77,0.15); pointer-events: none; }
+  .cmp-badge-w { width: 110px; flex-shrink: 0; }
+
+  /* ── Weekly ── */
+  .weekly-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+  .weekly-title { font-size:19px; font-weight:700; color:var(--text); letter-spacing:-0.015em; }
+  .weekly-subtitle { font-size:12px; color:var(--text2); margin-top:3px; }
+  .status-pill-pub { color:var(--green-txt); font-weight:600; }
+  .weekly-owners { display:flex; align-items:center; gap:6px; }
+  .owner-chip {
+    width:30px; height:30px; border-radius:50%; font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--accent-bg); color:var(--accent);
+    border: 1.5px solid var(--surface);
+    box-shadow: 0 0 0 1px rgba(63,79,237,0.25), var(--shadow-xs);
+  }
+  .wtabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:18px; border-bottom:1px solid var(--border); padding-bottom:14px; }
+  .wtab {
+    font-size:12px; padding:6px 14px; border-radius:999px; border:1px solid var(--border);
+    background:transparent; color:var(--text2); cursor:pointer; font-family:'Inter',sans-serif; transition:all .18s var(--ease);
+  }
+  .wtab:hover { background:rgba(5,12,77,0.05); color:var(--text); border-color: var(--border2); }
+  .wtab.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; box-shadow: 0 4px 12px rgba(63,79,237,0.3); }
+  .wtab-view { display:none; }
+  .wtab-view.active { display:block; }
+  .week-stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+  @media(max-width:580px) { .week-stat-row{grid-template-columns:repeat(2,1fr)} }
+  .role-update-card {
+    background:var(--surface); border:1px solid rgba(5,12,77,0.05); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:8px; display:flex; gap:14px; align-items:flex-start;
+    box-shadow: var(--shadow-xs);
+    transition: box-shadow .2s var(--ease), transform .2s var(--ease);
+  }
+  .role-update-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+  .ruc-icon { font-size:22px; flex-shrink:0; margin-top:1px; }
+  .ruc-body { flex:1; min-width:0; }
+  .ruc-top { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:5px; }
+  .ruc-title { font-size:13.5px; font-weight:600; color:var(--text); }
+  .ruc-status { font-size:12.5px; color:var(--text2); line-height:1.5; }
+  .ruc-pipeline-link { font-size:11px; color:var(--accent); cursor:pointer; margin-top:6px; display:inline-block; text-decoration:none; background:none; border:none; padding:0; font-family:inherit; opacity:0.85; }
+  .ruc-pipeline-link:hover { opacity:1; text-decoration:underline; }
+  .stage-tag { display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:99px; font-size:11px; font-weight:600; margin-left:6px; }
+  .stage-final    { background:rgba(139,92,246,0.15); color:#6D28D9; }
+  .stage-offer    { background:var(--green-bg); color:var(--green-txt); }
+  .stage-sourcing { background:var(--amber-bg); color:var(--amber-txt); }
+  .stage-screen   { background:rgba(59,130,246,0.15); color:#1D4ED8; }
+  .stage-prep     { background:var(--grey-bg); color:var(--grey-txt); }
+  .joiner-card {
+    background:var(--surface); border:1px solid rgba(5,12,77,0.05); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:8px; display:flex; align-items:center; gap:14px;
+    box-shadow: var(--shadow-xs); transition: box-shadow .2s var(--ease), transform .2s var(--ease);
+  }
+  .joiner-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+  .joiner-avatar { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; flex-shrink:0; box-shadow: var(--shadow-xs); }
+  .joiner-name { font-size:13.5px; font-weight:600; color:var(--text); }
+  .joiner-role { font-size:12px; color:var(--text2); margin-top:2px; }
+  .joiner-meta { font-size:11px; color:var(--text3); margin-top:2px; }
+  .joiner-right { display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; }
+  .joiner-date { background:var(--green-bg); color:var(--green-txt); font-size:12px; font-weight:600; padding:4px 12px; border-radius:99px; }
+  .joiner-ttfill { font-size:11px; color:var(--text3); }
+  .update-table { background:var(--surface); border:1px solid rgba(5,12,77,0.05); border-radius:var(--radius); overflow:hidden; box-shadow: var(--shadow-xs); }
+  .update-row { display:grid; grid-template-columns:2fr 1fr 3fr; border-bottom:1px solid var(--border); }
+  .update-row:last-child { border-bottom:none; }
+  .update-row:hover:not(.update-header) { background:rgba(5,12,77,0.03); }
+  .update-header { background:rgba(5,12,77,0.025); }
+  .update-header > div { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--text3); padding:10px 14px; }
+  .update-row:not(.update-header) > div { padding:12px 14px; font-size:12.5px; color:var(--text2); line-height:1.5; display:flex; align-items:center; }
+  .uc-role { font-weight:500; color:var(--text); }
+  .role-emoji { margin-right:6px; }
+  @media(max-width:600px) { .update-row{grid-template-columns:1fr} .update-header .uc-hm,.update-header .uc-update{display:none} }
+
+  /* Charts */
+  .data-year-tabs { display:flex; gap:4px; margin-bottom:16px; background: rgba(5,12,77,0.035); padding:4px; border-radius:11px; width:fit-content; }
+  .dyt { font-size:12px; padding:5px 14px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--text2); cursor:pointer; font-family:inherit; transition:all .18s var(--ease); }
+  .dyt:hover { background:rgba(5,12,77,0.05); color:var(--text); }
+  .dyt.active { background:var(--surface); color:var(--accent); border-color:transparent; font-weight:600; box-shadow: 0 2px 6px rgba(5,12,77,0.08); }
+  .dy { display:none; } .dy.active { display:block; }
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  @media(max-width:600px) { .charts-grid{grid-template-columns:1fr} }
+  .chart-card { background:var(--surface); border:1px solid rgba(5,12,77,0.05); border-radius:var(--radius); padding:16px; box-shadow: var(--shadow-xs); }
+  .chart-title { font-size:10.5px; font-weight:700; color:var(--text3); margin-bottom:12px; text-transform:uppercase; letter-spacing:.08em; }
+
+  /* World Map */
+  .map-controls { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+  .map-ctrl { font-size:12px; padding:6px 14px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--text2); cursor:pointer; font-family:inherit; transition:all .18s var(--ease); box-shadow: var(--shadow-xs); }
+  .map-ctrl:hover { background:rgba(5,12,77,0.04); color:var(--text); }
+  .map-ctrl.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; box-shadow: 0 4px 12px rgba(63,79,237,0.3); }
+  .map-wrap { border:1px solid rgba(5,12,77,0.05); border-radius:var(--radius); overflow:hidden; margin-bottom:14px; background:#E9EEFB; position:relative; box-shadow: var(--shadow-xs); }
+  #map-svg { width:100%; display:block; cursor:grab; }
+  #map-svg:active { cursor:grabbing; }
+  .map-popup { position:absolute; background:rgba(255,255,255,0.98); color:var(--text); padding:9px 13px; border-radius:var(--radius-sm); font-size:12px; pointer-events:none; max-width:200px; line-height:1.6; z-index:10; display:none; border:1px solid var(--border2); box-shadow: var(--shadow-lg); backdrop-filter:blur(8px); }
+  .map-sidebar { background:var(--surface); border:1px solid rgba(5,12,77,0.05); border-radius:var(--radius); padding:16px; box-shadow: var(--shadow-xs); }
+  .map-sidebar-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text3); margin-bottom:12px; }
+  .map-loc-row { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
+  .map-loc-row:last-child { border-bottom:none; }
+  .map-loc-left { display:flex; align-items:center; gap:9px; }
+  .map-loc-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .map-loc-count { font-weight:600; color:var(--text); font-family:'JetBrains Mono', monospace; font-size:13px; }
+  .map-legend-pill { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px; font-size:11px; font-weight:600; border:1px solid var(--border2); background:var(--surface); box-shadow: var(--shadow-xs); }
+
+  /* ── Action Items ── */
+  .actions-filter { display:flex; gap:4px; margin-bottom:16px; background: rgba(5,12,77,0.035); padding:4px; border-radius:11px; width:fit-content; }
+  .aft { font-size:12px; padding:6px 14px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--text2); cursor:pointer; font-family:inherit; transition:all .18s var(--ease); }
+  .aft:hover { background:rgba(5,12,77,0.05); color:var(--text); }
+  .aft.active { background:var(--surface); color:var(--accent); font-weight:600; box-shadow: 0 2px 6px rgba(5,12,77,0.08); }
+  .action-list { display:flex; flex-direction:column; gap:8px; }
+  .action-card {
+    background:var(--surface); border:1px solid rgba(5,12,77,0.05); border-radius:var(--radius);
+    padding:14px 16px; display:flex; gap:12px; align-items:flex-start;
+    box-shadow: var(--shadow-xs); transition: box-shadow .2s var(--ease), opacity .2s var(--ease);
+  }
+  .action-card:hover { box-shadow: var(--shadow); }
+  .action-card.action-done { opacity:.5; }
+  .action-check { position:relative; flex-shrink:0; margin-top:2px; cursor:pointer; display:flex; }
+  .action-check input { position:absolute; opacity:0; width:20px; height:20px; margin:0; cursor:pointer; }
+  .action-checkmark { width:20px; height:20px; border-radius:6px; border:1.5px solid var(--border2); background:var(--surface); display:flex; align-items:center; justify-content:center; transition: all .15s var(--ease); }
+  .action-check input:checked ~ .action-checkmark { background:var(--accent); border-color:var(--accent); }
+  .action-check input:checked ~ .action-checkmark::after { content:'✓'; color:#fff; font-size:12px; font-weight:700; }
+  .action-body { flex:1; min-width:0; }
+  .action-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+  .action-role { font-size:13px; font-weight:600; color:var(--text); }
+  .action-done .action-title { text-decoration: line-through; }
+  .action-title { font-size:12.5px; color:var(--text); font-weight:500; line-height:1.5; margin-bottom:4px; }
+  .action-meta { font-size:11.5px; color:var(--text3); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+  /* ── Trends ── */
+  .trend-delta { font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:3px; margin-top:2px; }
+  .trend-up-bad { color: var(--red-txt); }
+  .trend-up-good { color: var(--green-txt); }
+  .trend-down-bad { color: var(--red-txt); }
+  .trend-down-good { color: var(--green-txt); }
+  .trend-flat { color: var(--text3); }
+  .trend-legend { display:flex; gap:14px; margin-bottom:12px; flex-wrap:wrap; }
+  .trend-legend span { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text2); }
+  .trend-legend i { width:10px; height:10px; border-radius:3px; display:inline-block; }
+
+  /* ── Quality of Hire, Cost per Hire & Budget ── */
+  .qoh-table, .cph-table, .budget-table { background:var(--surface); border:1px solid rgba(5,12,77,0.05); border-radius:var(--radius); overflow:hidden; box-shadow: var(--shadow-xs); width:100%; border-collapse:collapse; font-size:12.5px; }
+  .qoh-table th, .cph-table th, .budget-table th { padding:10px 14px; text-align:left; background:rgba(5,12,77,0.025); border-bottom:1px solid var(--border); font-size:10px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.07em; white-space:nowrap; }
+  .qoh-table td, .cph-table td, .budget-table td { padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .qoh-table tr:last-child td, .cph-table tr:last-child td, .budget-table tr:last-child td { border-bottom:none; }
+  .qoh-table tr:hover td, .cph-table tr:hover td, .budget-table tr:hover td { background: rgba(5,12,77,0.03); }
+  .stars { color:#EF9F27; letter-spacing:1px; font-size:12px; }
+  .cph-over { color: var(--red-txt); font-weight:600; }
+  .cph-under { color: var(--green-txt); font-weight:600; }
+
+  /* Branding */
+  .branding { margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:11px; color:var(--text3); text-align:right; letter-spacing:.02em; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(5,12,77,0.16); border-radius:99px; border:2px solid transparent; background-clip:content-box; }
+  ::-webkit-scrollbar-thumb:hover { background:rgba(5,12,77,0.26); background-clip:content-box; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-logo">Z</div>
+    <div>
+      <div class="topbar-title">Hiring Pipeline Health</div>
+    </div>
+  </div>
+  <div class="topbar-divider"></div>
+  <div class="tabs">
+    <button class="tab active" onclick="showView('overview',this)">Overview</button>
+    <button class="tab" onclick="showView('allroles',this)">All roles</button>
+    <button class="tab" onclick="showView('ranked',this)">Ranked by health</button>
+    <button class="tab" onclick="showView('detail',this)">Role detail</button>
+    <button class="tab" onclick="showView('departments',this)">Departments</button>
+    <button class="tab" onclick="showView('actions',this)">✅ Action items</button>
+    <button class="tab" onclick="showView('weekly',this)">Weekly update</button>
+    <button class="tab" onclick="showView('trends',this)">📈 Trends</button>
+    <button class="tab" onclick="showView('qualityhire',this)">🌟 Quality of Hire</button>
+    <button class="tab" onclick="showView('costperhire',this)">💷 Cost per Hire</button>
+    <button class="tab" onclick="showView('budget',this)">💰 Budget</button>
+    <button class="tab" onclick="showView('worldmap',this)">🌍 World map</button>
+  </div>
+  <div class="topbar-meta">13 roles &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Zyte</div>
+</div>
+
+<div class="container">
+
+  <div class="how-it-works" id="how-it-works-el">
+    <div class="hiw-label">How to read this</div>
+    <div class="hiw-step">
+      <div class="hiw-num">Check 1</div>
+      <div class="hiw-q">Are we filtering applicants well?</div>
+      <div class="hiw-desc">We should review 4–10 people for every 1 we invite to a screen call.</div>
+    </div>
+    <div class="hiw-step">
+      <div class="hiw-num">Check 2</div>
+      <div class="hiw-q">Are the right people reaching the hiring manager?</div>
+      <div class="hiw-desc">Recruiters should screen 3–5 before handing to the hiring manager.</div>
+    </div>
+    <div class="hiw-step">
+      <div class="hiw-num">Check 3</div>
+      <div class="hiw-q">Are we making offer decisions quickly?</div>
+      <div class="hiw-desc">Best-in-class: make an offer after 2–3 final interviews, not more.</div>
+    </div>
+  </div>
+
+  <!-- ══ OVERVIEW ══ -->
+  <div id="overview" class="view active">
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-label">Roles fully on track</div>
+        <div class="stat-val" style="color:#56961A;">1</div>
+        <div class="stat-sub">Financial Analyst only</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Filtering at the start</div>
+        <div class="stat-val" style="color:#E24B4A;">8 / 11</div>
+        <div class="stat-sub">roles not selective enough</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Reaching hiring managers</div>
+        <div class="stat-val" style="color:#56961A;">Mostly fine</div>
+        <div class="stat-sub">Account Exec is the outlier</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Making offer decisions</div>
+        <div class="stat-val" style="color:#E24B4A;">Too slow</div>
+        <div class="stat-sub">too many final interviews</div>
+      </div>
+    </div>
+
+        <div class="callout callout-r">
+      <div class="callout-icon"></div>
+      <div class="callout-body-wrap">
+        <div class="callout-title">🔴 We're not filtering applicants at the start of most pipelines</div>
+        <div class="callout-body">8 out of 11 roles are calling almost every applicant for a screen. Best-in-class teams review 4–10 before picking up the phone. This usually means job descriptions are too vague, or there's no clear checklist of must-haves to filter against.</div>
+      </div>
+    </div>
+        <div class="callout callout-r">
+      <div class="callout-icon"></div>
+      <div class="callout-body-wrap">
+        <div class="callout-title">🔴 We're doing too many final interviews before making a decision</div>
+        <div class="callout-body">Director of Finance, Web Developer, and Marketing Intern all have 6+ final interviews for every offer made. Best-in-class is 2–3. That's double the work — and it risks good candidates accepting elsewhere while we're still deliberating.</div>
+      </div>
+    </div>
+        <div class="callout callout-g">
+      <div class="callout-icon"></div>
+      <div class="callout-body-wrap">
+        <div class="callout-title">✅ The mid-stage handoff from recruiter to hiring manager is mostly working</div>
+        <div class="callout-body">Most roles are passing the right number of candidates through to hiring managers. Business Dev Rep and Financial Analyst are right on track here. Account Executive is the one exception — 10 screened candidates per hiring manager interview, when 3–5 is the target.</div>
+      </div>
+    </div>
+        <div class="callout callout-a">
+      <div class="callout-icon"></div>
+      <div class="callout-body-wrap">
+        <div class="callout-title">💡 Financial Analyst is our best-performing pipeline — use it as the template</div>
+        <div class="callout-body">It's the only role hitting industry standards at two out of three checks. The recruiter and hiring manager are well-aligned, and the team makes offer decisions efficiently. The one gap is top-of-funnel volume — slightly broader sourcing would complete the picture.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ALL ROLES ══ -->
+  <div id="allroles" class="view">
+    <div class="legend">
+      <span><span class="leg-dot" style="background:#56961A;"></span>On track</span>
+      <span><span class="leg-dot" style="background:#EF9F27;"></span>Watch</span>
+      <span><span class="leg-dot" style="background:#E24B4A;"></span>Needs attention</span>
+      <span><span class="leg-dot" style="background:#9AA1AE;"></span>No data yet</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="roles-table" id="roles-table-el"></table>
+    </div>
+  </div>
+
+  <!-- ══ RANKED ══ -->
+  <div id="ranked" class="view">
+    <p style="font-size:13px;color:#888;margin-bottom:14px;">Sorted from healthiest to most at-risk. Click any role to see its full breakdown.</p>
+    <div class="rank-list" id="rank-list-el"></div>
+  </div>
+
+  <!-- ══ DETAIL ══ -->
+  <div id="detail" class="view">
+    <select class="detail-select" id="job-select" onchange="renderDetail()"></select>
+    <div id="detail-content"></div>
+  </div>
+
+  <!-- ══ DEPARTMENTS ══ -->
+  <div id="departments" class="view">
+    <div class="dept-sub-tabs">
+      <button class="dst active" onclick="showDSub('dsv-cards',this)">By department</button>
+      <button class="dst" onclick="showDSub('dsv-compare',this)">Side by side</button>
+    </div>
+    <div id="dsv-cards" class="dsv active">
+      <div class="dept-stat-row" id="dept-stat-row-el"></div>
+      <div id="dept-cards-el"></div>
+    </div>
+    <div id="dsv-compare" class="dsv">
+      <div id="dept-compare-el"></div>
+    </div>
+  </div>
+
+  <!-- ══ ACTION ITEMS ══ -->
+  <div id="actions" class="view">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Auto-generated from the checks above — one card per role/check that isn't on track yet. Tick items off as you address them.</p>
+    <div class="stat-row" id="actions-stats-el"></div>
+    <div class="actions-filter" id="actions-filter-el">
+      <button class="aft active" onclick="setActionFilter('open',this)">Open</button>
+      <button class="aft" onclick="setActionFilter('all',this)">All</button>
+      <button class="aft" onclick="setActionFilter('done',this)">Completed</button>
+    </div>
+    <div class="action-list" id="actions-list-el"></div>
+  </div>
+
+  <!-- ══ WEEKLY UPDATE ══ -->
+  <div id="weekly" class="view">
+    <div class="weekly-header">
+      <div>
+        <div class="weekly-title">TA Weekly Update</div>
+        <div class="weekly-subtitle">W/c 20 March 2026 &nbsp;·&nbsp; Reporting period: Apr 20–24 &nbsp;·&nbsp; <span class="status-pill-pub">● Published</span></div>
+      </div>
+      <div class="weekly-owners">
+        <div class="owner-chip">HP</div>
+        <div class="owner-chip" style="background:#D4E8FF;color:#1A5FA3;">CB</div>
+        <div class="owner-chip" style="background:#FFE8D4;color:#A35A1A;">EB</div>
+        <span style="font-size:12px;color:#AAA;margin-left:4px;">Hrvoje · Claire · Eric</span>
+      </div>
+    </div>
+
+    <!-- Sub-tabs -->
+    <div class="wtabs">
+      <button class="wtab active" onclick="showWTab('wt-roles',this)">🔄 Active Roles</button>
+      <button class="wtab" onclick="showWTab('wt-joiners',this)">🎉 New Joiners</button>
+      <button class="wtab" onclick="showWTab('wt-other',this)">📋 Other Updates</button>
+      <button class="wtab" onclick="showWTab('wt-upcoming',this)">🔭 Upcoming Roles</button>
+      <button class="wtab" onclick="showWTab('wt-data',this)">📊 Recruitment Data</button>
+    </div>
+
+    <!-- ── Active Roles ── -->
+    <div id="wt-roles" class="wtab-view active">
+      <div class="week-stat-row" id="weekly-stats-el"></div>
+      <div id="weekly-active-el"></div>
+    </div>
+
+    <!-- ── New Joiners ── -->
+    <div id="wt-joiners" class="wtab-view">
+      <div class="week-stat-row">
+        <div class="stat-card"><div class="stat-label">Offers accepted this period</div><div class="stat-val" style="color:#56961A;">3</div><div class="stat-sub">Apr 20–24</div></div>
+        <div class="stat-card"><div class="stat-label">Starting this month</div><div class="stat-val" style="color:#2B5AC9;">2</div><div class="stat-sub">confirmed start dates</div></div>
+        <div class="stat-card"><div class="stat-label">Avg. time to hire</div><div class="stat-val" style="color:#1A1A18;">38<span style="font-size:14px;font-weight:400;">d</span></div><div class="stat-sub">this quarter</div></div>
+        <div class="stat-card"><div class="stat-label">Offer acceptance rate</div><div class="stat-val" style="color:#56961A;">89%</div><div class="stat-sub">vs 85% target</div></div>
+      </div>
+      <div id="weekly-joiners-el"></div>
+    </div>
+
+    <!-- ── Other Role Updates ── -->
+    <div id="wt-other" class="wtab-view">
+      <p style="font-size:13px;color:#888;margin-bottom:14px;">Roles not in active pipeline but with noteworthy updates this week.</p>
+      <div class="update-table">
+        <div class="update-row update-header">
+          <div class="uc-role">Role</div>
+          <div class="uc-hm">Hiring Manager</div>
+          <div class="uc-update">Update</div>
+        </div>
+        <div class="update-row">
+          <div class="uc-role"><span class="role-emoji">⚖️</span> Chief Legal Officer</div>
+          <div class="uc-hm">Laura M.</div>
+          <div class="uc-update">Role filled — closed in Workable. Onboarding underway.</div>
+        </div>
+        <div class="update-row">
+          <div class="uc-role"><span class="role-emoji">🧠</span> Staff ML Scientist</div>
+          <div class="uc-hm">Stefan K.</div>
+          <div class="uc-update">Role put on hold pending Q3 headcount review. Pipeline paused.</div>
+        </div>
+        <div class="update-row">
+          <div class="uc-role"><span class="role-emoji">🎨</span> UX Researcher</div>
+          <div class="uc-hm">Petra V.</div>
+          <div class="uc-update">Scope being revised — may merge with Senior Product Designer remit. Decision expected next week.</div>
+        </div>
+        <div class="update-row">
+          <div class="uc-role"><span class="role-emoji">💸</span> Enterprise AE — EMEA</div>
+          <div class="uc-hm">Nina R.</div>
+          <div class="uc-update">Awaiting headcount approval. JD drafted and ready to post once approved.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Upcoming Roles ── -->
+    <div id="wt-upcoming" class="wtab-view">
+      <p style="font-size:13px;color:#888;margin-bottom:14px;">Roles expected to open in the next 4–8 weeks. Not yet live in Workable.</p>
+      <div class="update-table">
+        <div class="update-row update-header">
+          <div class="uc-role">Role</div>
+          <div class="uc-hm">Hiring Manager</div>
+          <div class="uc-update">Expected timeline</div>
+        </div>
+        <div class="update-row">
+          <div class="uc-role"><span class="role-emoji">📈</span> Head of Revenue Operations</div>
+          <div class="uc-hm">David C.</div>
+          <div class="uc-update"><span class="stage-tag stage-prep">Opening May 2026</span> Headcount approved. JD in review.</div>
+        </div>
+        <div class="update-row">
+          <div class="uc-role"><span class="role-emoji">🧠</span> Senior Data Engineer</div>
+          <div class="uc-hm">Ravi S.</div>
+          <div class="uc-update"><span class="stage-tag stage-prep">Opening May 2026</span> Backfill — departing team member last day May 3rd.</div>
+        </div>
+        <div class="update-row">
+          <div class="uc-role"><span class="role-emoji">🤝</span> Customer Success Manager</div>
+          <div class="uc-hm">Claire B.</div>
+          <div class="uc-update"><span class="stage-tag stage-prep">Opening June 2026</span> New headcount pending board sign-off.</div>
+        </div>
+        <div class="update-row">
+          <div class="uc-role"><span class="role-emoji">💼</span> People Operations Manager</div>
+          <div class="uc-hm">Sophie L.</div>
+          <div class="uc-update"><span class="stage-tag stage-prep">Opening June 2026</span> Role design in progress.</div>
+        </div>
+        <div class="update-row">
+          <div class="uc-role"><span class="role-emoji">🎧</span> Technical Support Lead</div>
+          <div class="uc-hm">Marco T.</div>
+          <div class="uc-update"><span class="stage-tag stage-prep">Opening July 2026</span> Awaiting Q3 plan finalisation.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Recruitment Data ── -->
+    <div id="wt-data" class="wtab-view">
+      <div class="data-year-tabs">
+        <button class="dyt active" onclick="showDataYear('dy-2026',this)">2026</button>
+        <button class="dyt" onclick="showDataYear('dy-2025',this)">2025</button>
+        <button class="dyt" onclick="showDataYear('dy-legacy',this)">Legacy (2021–)</button>
+      </div>
+
+      <div id="dy-2026" class="dy active">
+        <!-- Row 1: Stage + Sources -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">No. Roles by Stage</div>
+            <canvas id="chart-stage" width="340" height="220"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Candidate Sources</div>
+            <canvas id="chart-source" width="280" height="220"></canvas>
+          </div>
+        </div>
+        <!-- Row 2: Level + Gender -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">Level of New Hires</div>
+            <canvas id="chart-level" width="280" height="220"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Hires by Gender</div>
+            <canvas id="chart-gender" width="280" height="220"></canvas>
+          </div>
+        </div>
+        <!-- Row 3: By Department + Type of Employment -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">No. Hires by Department</div>
+            <canvas id="chart-dept" width="340" height="240"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">No. Hires by Type of Employment</div>
+            <canvas id="chart-emp-type" width="320" height="240"></canvas>
+          </div>
+        </div>
+        <!-- Row 4: Type of Hire + Avg Comp big stat -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">No. Hires by Type (New vs Replacement)</div>
+            <canvas id="chart-hire-type" width="340" height="200"></canvas>
+          </div>
+          <div class="chart-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+            <div class="chart-title" style="align-self:flex-start;">Average Compensation Ratio</div>
+            <div id="comp-overall-val" style="font-size:52px;font-weight:800;color:#1A1A18;line-height:1;margin:12px 0 6px;">—</div>
+            <div style="font-size:15px;color:#555;font-weight:500;">Average Compa-Ratio</div>
+            <div style="font-size:12px;color:#AAA;margin-top:6px;">Target: 95–105% of midpoint</div>
+            <div style="margin-top:14px;display:flex;gap:10px;font-size:12px;">
+              <span style="background:#FDECEC;color:#A82828;padding:4px 10px;border-radius:99px;font-weight:600;">Below mid: 34%</span>
+              <span style="background:#E8F5DC;color:#3B6D11;padding:4px 10px;border-radius:99px;font-weight:600;">At mid: 51%</span>
+              <span style="background:#FEF3E2;color:#92540C;padding:4px 10px;border-radius:99px;font-weight:600;">Above: 15%</span>
+            </div>
+          </div>
+        </div>
+        <!-- Row 4b: Compa-Ratio by Department -->
+        <div class="charts-grid" style="grid-template-columns:1fr;">
+          <div class="chart-card">
+            <div class="chart-title">Compa-Ratio by Department (% of range midpoint)</div>
+            <canvas id="chart-compa" width="660" height="200"></canvas>
+          </div>
+        </div>
+        <!-- Row 5: TTH + OAR -->
+        <div class="charts-grid">
+          <div class="chart-card" style="grid-column:span 1;">
+            <div class="chart-title">Time to Hire by Department (days)</div>
+            <canvas id="chart-tth" width="340" height="200"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Offer Acceptance Rate</div>
+            <canvas id="chart-oar" width="280" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div id="dy-2025" class="dy">
+        <div style="background:#fff;border:1px solid #E4E3DE;border-radius:12px;padding:32px;text-align:center;color:#AAA;">
+          <div style="font-size:32px;margin-bottom:10px;">📊</div>
+          <div style="font-size:14px;font-weight:600;color:#555;margin-bottom:6px;">2025 Recruitment Data</div>
+          <div style="font-size:13px;">Full-year 2025 data is available in the linked Google Sheets report.</div>
+          <div style="margin-top:14px;font-size:12px;color:#2B5AC9;cursor:pointer;">Open in Google Sheets →</div>
+        </div>
+      </div>
+
+      <div id="dy-legacy" class="dy">
+        <div style="background:#fff;border:1px solid #E4E3DE;border-radius:12px;padding:32px;text-align:center;color:#AAA;">
+          <div style="font-size:32px;margin-bottom:10px;">🗂️</div>
+          <div style="font-size:14px;font-weight:600;color:#555;margin-bottom:6px;">Legacy Data (2021–2024)</div>
+          <div style="font-size:13px;">Historical hiring data from 2021 onwards is maintained in the legacy Google Sheets file.</div>
+          <div style="margin-top:14px;font-size:12px;color:#2B5AC9;cursor:pointer;">Open legacy data →</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ TRENDS ══ -->
+  <div id="trends" class="view">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">8-week trend across all roles — is the picture improving or getting worse?</p>
+    <div class="stat-row" id="trends-stats-el"></div>
+    <div class="charts-grid" style="grid-template-columns:1fr;">
+      <div class="chart-card">
+        <div class="chart-title">Check pass rate — % of roles on track (8 weeks)</div>
+        <div class="trend-legend" id="trend-legend-el"></div>
+        <canvas id="chart-trend-checks" width="660" height="220"></canvas>
+      </div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Avg. time to hire (days)</div>
+        <canvas id="chart-trend-tth" width="320" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Offer acceptance rate (%)</div>
+        <canvas id="chart-trend-oar" width="320" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ QUALITY OF HIRE ══ -->
+  <div id="qualityhire" class="view">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Two surveys per hire: one sent to the hiring manager at the close of the hiring process (satisfaction with the process itself), and one at the 6-month mark (satisfaction with the hire's performance), plus 6-month retention and hiring manager eNPS. A lagging check on whether the leading indicators above are actually producing good hires.</p>
+    <div class="stat-row" id="qoh-stats-el"></div>
+    <div class="chart-card" style="margin-bottom:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+      <div class="chart-title" style="align-self:flex-start;">Quality of Hire Index</div>
+      <div id="qoh-index-el" style="font-size:52px;font-weight:800;color:var(--accent);line-height:1;margin:12px 0 6px;">—</div>
+      <div style="font-size:13px;color:var(--text2);">Blends 6-month satisfaction, 6-month retention, and hiring manager eNPS</div>
+    </div>
+    <div class="callout callout-a" style="margin-bottom:20px;">
+      <div class="callout-icon"></div>
+      <div class="callout-body-wrap">
+        <div class="callout-title">💡 Early signal: weak pipelines correlate with weaker outcomes</div>
+        <div class="callout-body">Both hires who left before 6 months — Director of Finance and Digital Brand Manager — also scored lowest on the close-of-process survey, and came from pipelines flagged "needs attention" on multiple checks (too many final interviews, and an overly narrow job description). Our highest-satisfaction, highest-eNPS hires (Financial Analyst, Business Dev Rep) came from the healthiest pipelines and scored well at both survey points. Small sample so far, but worth tracking as we collect more data.</div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="qoh-table" id="qoh-table-el"></table>
+    </div>
+  </div>
+
+  <!-- ══ COST PER HIRE ══ -->
+  <div id="costperhire" class="view">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:6px;">Cost per hire is an estimate, not an exact figure.</p>
+    <p style="font-size:11.5px;color:var(--text3);margin-bottom:14px;">Methodology: includes job ad spend, agency/contingency fees, referral bonuses, and a fixed monthly recruiter salary (loaded cost) allocated to each department based on agreed time-split, rather than hours logged. Excludes hiring manager time, onboarding/training costs, and relocation support — treat as directional, not exact.</p>
+    <div class="stat-row" id="cph-stats-el"></div>
+    <div class="charts-grid" style="grid-template-columns:1fr;">
+      <div class="chart-card">
+        <div class="chart-title">Cost per hire by department ($)</div>
+        <canvas id="chart-cph" width="660" height="220"></canvas>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="cph-table" id="cph-table-el"></table>
+    </div>
+  </div>
+
+  <!-- ══ BUDGET ══ -->
+  <div id="budget" class="view">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Every role has an approved salary budget. When a role closes, the gap between budget and actual offer feeds a shared Out-of-Budget (OOB) pool — savings top it up, overages draw it down.</p>
+    <div class="stat-row" id="budget-stats-el"></div>
+    <div class="callout callout-a" style="margin-bottom:20px;">
+      <div class="callout-icon"></div>
+      <div class="callout-body-wrap">
+        <div class="callout-title">💡 How the Out-of-Budget (OOB) pool works</div>
+        <div class="callout-body">We start each year with a $30,000 OOB contingency. When a role closes under budget, the savings go back into the pool. When a role closes over budget — for example, to win a strong candidate in a competitive process — it draws the pool down instead of needing a fresh approval. This gives hiring managers some flexibility on individual offers as long as the pool overall stays healthy.</div>
+      </div>
+    </div>
+    <div class="charts-grid" style="grid-template-columns:1fr;">
+      <div class="chart-card">
+        <div class="chart-title">OOB pool balance through the year ($k)</div>
+        <canvas id="chart-oob" width="660" height="220"></canvas>
+      </div>
+    </div>
+    <div class="pipeline-title" style="margin-top:4px;">Closed roles</div>
+    <div style="overflow-x:auto;margin-bottom:24px;">
+      <table class="budget-table" id="budget-closed-table-el"></table>
+    </div>
+    <div class="pipeline-title">Open roles — budget reserved, pending close</div>
+    <div style="overflow-x:auto;">
+      <table class="budget-table" id="budget-open-table-el"></table>
+    </div>
+  </div>
+
+  <!-- ══ WORLD MAP ══ -->
+  <div id="worldmap" class="view">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <div>
+        <div style="font-size:18px;font-weight:700;">Team &amp; Candidate Locations</div>
+        <div style="font-size:13px;color:#888;margin-top:2px;">Where our team is based and where active candidates are located · June 2026</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;" id="map-legend-el"></div>
+    </div>
+    <div class="map-controls">
+      <button class="map-ctrl active" onclick="setMapView('team',this)">🏠 Team</button>
+      <button class="map-ctrl" onclick="setMapView('candidates',this)">👤 Candidates</button>
+      <button class="map-ctrl" onclick="setMapView('both',this)">Both</button>
+      <span style="font-size:12px;color:#AAA;margin-left:6px;">Bubble size = headcount</span>
+    </div>
+    <div class="map-wrap">
+      <svg id="map-svg"></svg>
+      <div class="map-popup" id="map-popup"></div>
+    </div>
+    <div class="map-sidebar">
+      <div class="map-sidebar-title">Location breakdown</div>
+      <div id="map-sidebar-el"></div>
+    </div>
+  </div>
+
+  <div class="branding">Zyte People Team &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Data via Workable MCP &nbsp;·&nbsp; Benchmarks: Ashby 2025, Metaview, SeekOut</div>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────
+const G='g', A='a', R='r', N='n';
+const T1=[4,10], T2=[3,5], T3=[2,3];
+const ICON = {g:'✅', a:'⚠️', r:'🔴', n:'—'};
+const COLORS = {g:'#56961A', a:'#EF9F27', r:'#E24B4A', n:'#9AA1AE'};
+const BGCOLS  = {g:'#E8F5DC', a:'#FEF3E2', r:'#FDECEC', n:'#F1EFE8'};
+const TXTCOLS = {g:'#3B6D11', a:'#92540C', r:'#A82828', n:'#5F5E5A'};
+const BDGCLS  = {g:'badge-g', a:'badge-a', r:'badge-r', n:'badge-n'};
+const CHKBOX  = {g:'check-box-g', a:'check-box-a', r:'check-box-r', n:'check-box-n'};
+
+function rate(v, t) {
+  if (v===null) return N;
+  if (v>=t[0] && v<=t[1]) return G;
+  if ((v<t[0] && v>=t[0]-1)||(v>t[1] && v<=t[1]+2)) return A;
+  return R;
+}
+function statusWord(v, key) {
+  if (v===null) return 'No data';
+  var t = key==='r1'?T1:key==='r2'?T2:T3;
+  var rt = rate(v,t);
+  if (rt===G) return 'On track';
+  if (rt===A) return 'Watch';
+  if (v < t[0]) return 'Too low';
+  return 'Too high';
+}
+function badge(v, key) {
+  var sw = statusWord(v, key);
+  var t = key==='r1'?T1:key==='r2'?T2:T3;
+  var rt = rate(v,t);
+  var num = v!==null ? ' ('+v.toFixed(1)+':1)' : '';
+  return '<span class="badge '+BDGCLS[rt]+'"><span class="badge-icon">'+ICON[rt]+'</span>'+sw+num+'</span>';
+}
+
+// ── Job data ───────────────────────────────────────────────
+var JOBS = [
+  { name:'Account Executive',        total:41,  stages:{Applied:18,'Phone Screen':10,Assessment:4,'HM Interview':1,Offer:1,Hired:1,Sourced:6},   r1:1.8, r2:10.0, r3:null },
+  { name:'Business Development Rep', total:100, stages:{Applied:45,'Phone Screen':15,Interview:3,Sourced:2,Contacted:19,Engaged:16},              r1:3.0, r2:5.0,  r3:null },
+  { name:'Customer Support Rep',     total:30,  stages:{Applied:16,'Phone Screen':6,'HM Interview':3,Offer:1,Hired:1,Sourced:2},                  r1:2.7, r2:2.0,  r3:3.0  },
+  { name:'Dental Hygienist',         total:10,  stages:{Applied:3,Sourced:4,Contacted:2},                                                         r1:null,r2:null, r3:null },
+  { name:'Digital Brand Manager',    total:71,  stages:{Applied:53,'Phone Screen':3,'HM Interview':1,Assessment:1,Sourced:13},                    r1:17.7,r2:3.0,  r3:null },
+  { name:'Director of Finance',      total:71,  stages:{Applied:24,'Phone Screen':14,Assessment:10,'Video Interview':4,'HM Interview':6,Offer:1,Hired:1,Sourced:11}, r1:1.7, r2:2.3, r3:6.0 },
+  { name:'Engineering Talent Pool',  total:100, stages:{Applied:40,'Phone Screen':9,Contacted:32,Engaged:19},                                     r1:4.4, r2:null, r3:null },
+  { name:'Financial Analyst',        total:100, stages:{Applied:46,'Phone Screen':23,Assessment:14,'HM Interview':5,'Exec Interview':3,Offer:1,Sourced:8}, r1:2.0, r2:4.6, r3:3.0 },
+  { name:'HR Generalist',            total:87,  stages:{Applied:20,'Phone Screen':26,Assessment:23,'VP Interview':2,'HM Interview':1,Sourced:15},  r1:null,r2:null, r3:null, note:'Data issue: more phone screens than applicants — some sourced candidates were likely added mid-pipeline.' },
+  { name:'Machine Learning Engineer',total:51,  stages:{Applied:17,'Phone Screen':6,Test:6,Assessment:5,'Technical Interview':3,'VP Interview':1,Offer:1,Sourced:12}, r1:2.8, r2:2.0, r3:3.0 },
+  { name:'Marketing Intern',         total:95,  stages:{Applied:52,'Phone Screen':28,'HM Interview':13,Hired:2},                                  r1:1.9, r2:2.2,  r3:6.5 },
+  { name:'Marketing Manager',        total:48,  stages:{Applied:15,'Phone Screen':11,Assessment:8,'HM Interview':5,Sourced:2},                    r1:1.4, r2:2.2,  r3:null },
+  { name:'Web Developer',            total:100, stages:{Applied:39,Test:10,'Technical Interview':6,'VP Interview':3,Assessment:4,'Phone Screen':3,Hired:1,Sourced:34}, r1:3.9, r2:1.7, r3:6.0 },
+];
+
+function score(j) {
+  var s=0, t=0;
+  [[j.r1,T1],[j.r2,T2],[j.r3,T3]].forEach(function(p){ if(p[0]!==null){t++; if(rate(p[0],p[1])===G)s++;} });
+  return {s:s, t:t};
+}
+function hc(pct){ return COLORS[pct>=.67?G:pct>=.33?A:R]; }
+function hbg(pct){ return BGCOLS[pct>=.67?G:pct>=.33?A:R]; }
+function htxt(pct){ return TXTCOLS[pct>=.67?G:pct>=.33?A:R]; }
+
+// ── All Roles table ────────────────────────────────────────
+function buildTable() {
+  var t = document.getElementById('roles-table-el');
+  t.innerHTML = '<thead><tr>'
+    +'<th>Role</th>'
+    +'<th style="min-width:80px;">People</th>'
+    +'<th>Check 1 · Filtering applicants<br><small style="font-weight:400;color:#AAA;text-transform:none;letter-spacing:0;">Target: review 4–10 per screen call</small></th>'
+    +'<th>Check 2 · Reaching hiring manager<br><small style="font-weight:400;color:#AAA;text-transform:none;letter-spacing:0;">Target: 3–5 screened per HM interview</small></th>'
+    +'<th>Check 3 · Making offer decisions<br><small style="font-weight:400;color:#AAA;text-transform:none;letter-spacing:0;">Target: offer after 2–3 final interviews</small></th>'
+    +'<th>Overall</th>'
+    +'</tr></thead>';
+  var tb = document.createElement('tbody');
+  JOBS.forEach(function(j) {
+    var sc = score(j), pct = sc.t ? sc.s/sc.t : 0;
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td class="rname">'+j.name+(j.note?'<br><span style="font-size:11px;color:#AAA;">⚠ data issue</span>':'')+'</td>'
+      +'<td style="color:#888;">'+j.total+'</td>'
+      +'<td>'+badge(j.r1,'r1')+'</td>'
+      +'<td>'+badge(j.r2,'r2')+'</td>'
+      +'<td>'+badge(j.r3,'r3')+'</td>'
+      +'<td><div class="overall-wrap">'
+        +'<div class="overall-bar-bg"><div class="overall-bar" style="width:'+(sc.t?Math.round(pct*100):0)+'%;background:'+hc(pct)+';"></div></div>'
+        +'<span class="overall-label" style="color:'+hc(pct)+'">'+(sc.t?sc.s+'/'+sc.t:'—')+'</span>'
+      +'</div></td>';
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+}
+
+// ── Ranked ────────────────────────────────────────────────
+function buildRanked() {
+  var el = document.getElementById('rank-list-el');
+  JOBS.slice().sort(function(a,b){
+    var sa=score(a), sb=score(b);
+    return (sb.t?sb.s/sb.t:-1)-(sa.t?sa.s/sa.t:-1);
+  }).forEach(function(j) {
+    var sc=score(j), pct=sc.t?sc.s/sc.t:0;
+    var div=document.createElement('div');
+    div.className='rank-card';
+    div.onclick=function(){ selectJob(j.name); };
+    div.innerHTML='<div class="rank-top">'
+      +'<span class="rank-name">'+j.name+'</span>'
+      +'<span class="rank-overall" style="background:'+hbg(pct)+';color:'+htxt(pct)+'">'+(sc.t?sc.s+'/'+sc.t+' checks on track':'No data')+'</span>'
+      +'</div>'
+      +'<div class="rank-stages">'
+      +'<div class="rank-stage"><div class="rank-stage-lbl">Check 1</div>'+badge(j.r1,'r1')+'</div>'
+      +'<div class="rank-stage"><div class="rank-stage-lbl">Check 2</div>'+badge(j.r2,'r2')+'</div>'
+      +'<div class="rank-stage"><div class="rank-stage-lbl">Check 3</div>'+badge(j.r3,'r3')+'</div>'
+      +(j.note?'<span style="font-size:11px;color:#AAA;align-self:center;">⚠ data issue</span>':'')
+      +'</div>';
+    el.appendChild(div);
+  });
+}
+
+// ── Detail ────────────────────────────────────────────────
+function buildDetailSelect() {
+  var sel = document.getElementById('job-select');
+  JOBS.forEach(function(j){ var o=document.createElement('option'); o.value=j.name; o.textContent=j.name; sel.appendChild(o); });
+}
+function selectJob(name) {
+  document.getElementById('job-select').value=name;
+  // switch to detail tab
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  document.getElementById('detail').classList.add('active');
+  document.querySelectorAll('.tab')[3].classList.add('active');
+  updateHIW('detail');
+  renderDetail();
+}
+
+function renderDetail() {
+  var j = JOBS.find(function(x){return x.name===document.getElementById('job-select').value;});
+  var el = document.getElementById('detail-content');
+  var stageColors=['#378ADD','#1D9E75','#D4537E','#EF9F27','#534AB7','#639922','#888780','#D85A30'];
+  var entries = Object.entries(j.stages);
+  var maxV = Math.max.apply(null, entries.map(function(e){return e[1];}));
+
+  var insights = {
+    r1:{
+      g:  'Good — we\'re reviewing the right number of applicants before calling anyone.',
+      a:  'Getting close — a small tweak to the job description or screening checklist would fix this.',
+      r_lo:'Almost every applicant is being called. We need clearer must-haves in the job description so we can filter people out before they reach the phone.',
+      r_hi:'Barely anyone is making it through. The job description may be too specific — broadening it, or sourcing from different places, would help.',
+      n:  'Not enough data yet.'
+    },
+    r2:{
+      g:  'Good — recruiters are handing the right number of candidates to the hiring manager.',
+      a:  'Close — a quick conversation between recruiter and hiring manager about what a strong candidate looks like would help.',
+      r_lo:'Too many people are reaching the hiring manager. The recruiter and hiring manager should align on what to filter for before the next batch.',
+      r_hi:'Almost no one screened by the recruiter is making it to the hiring manager. Screening may be set too high.',
+      n:  'Not enough data yet.'
+    },
+    r3:{
+      g:  'Great — the team is making offer decisions after just a few final interviews. That\'s efficient.',
+      a:  'Slightly high — keep an eye on this. It might mean some borderline candidates are making it to the final round.',
+      r_lo:'Very few final-round candidates per offer. Standards may be too easy at the late stage.',
+      r_hi:'We\'re doing too many final interviews before making an offer. The team should be able to decide after 2–3 strong candidates — more than that means we\'re hesitating, and we risk losing people.',
+      n:  'No offers made yet for this role.'
+    }
+  };
+  function getIns(key, val, t) {
+    var rt=rate(val,t);
+    if(rt===N) return insights[key].n;
+    if(rt===G) return insights[key].g;
+    if(rt===A) return insights[key].a;
+    return val<t[0] ? insights[key].r_lo : insights[key].r_hi;
+  }
+
+  var stageQ = { r1:'Are we filtering applicants well?', r2:'Are the right people reaching the hiring manager?', r3:'Are we making offer decisions quickly?' };
+
+  var checksHTML = [['r1',T1],['r2',T2],['r3',T3]].map(function(p, i) {
+    var key=p[0], t=p[1], val=j[key], rt=rate(val,t);
+    var numStr = val!==null ? val.toFixed(1)+':1' : '—';
+    return '<div class="check-box '+CHKBOX[rt]+'">'
+      +'<div class="check-icon">'+ICON[rt]+'</div>'
+      +'<div class="check-stage">Check '+(i+1)+'</div>'
+      +'<div class="check-status">'+stageQ[key]+'</div>'
+      +'<div class="check-text">'+getIns(key,val,t)+(val!==null?' <strong>('+numStr+')</strong>':'')+'</div>'
+      +'</div>';
+  }).join('');
+
+  var funnelHTML = entries.map(function(e,i){
+    return '<div class="funnel-row"><span class="f-label">'+e[0]+'</span><div class="f-bar-bg"><div class="f-bar" style="width:'+Math.round(e[1]/maxV*100)+'%;background:'+stageColors[i%stageColors.length]+';"><span>'+e[1]+'</span></div></div></div>';
+  }).join('');
+
+  el.innerHTML = '<div class="detail-card">'
+    +'<div class="detail-name">'+j.name+'</div>'
+    +'<div class="detail-meta">'+(j.note?'⚠ '+j.note : j.total+' people currently in the pipeline')+'</div>'
+    +'<div class="checks-grid">'+checksHTML+'</div>'
+    +'<div class="pipeline-title">Pipeline breakdown</div>'
+    +funnelHTML
+    +'</div>';
+}
+
+// ── Departments ───────────────────────────────────────────
+var DEPTS = [
+  { name:'Finance', roles:['Director of Finance','Financial Analyst'], icon:'💰', iconBg:'#E6F1FB', iconColor:'#185FA5',
+    insight:'Financial Analyst is the closest role we have to a model process — recruiters and hiring managers are well-aligned and decisions get made quickly. Director of Finance is the problem: 6 final interviews before one offer (the target is 2–3). That\'s twice as many as it should be.' },
+  { name:'Engineering', roles:['Machine Learning Engineer','Web Developer','Engineering Talent Pool'], icon:'⚙️', iconBg:'#E1F5EE', iconColor:'#0F6E56',
+    insight:'Engineering Talent Pool has the healthiest pipeline in the department. Web Developer and ML Engineer are both sending too many candidates to hiring managers — a short conversation between recruiters and hiring managers about what to look for would help. Web Developer also has 6 final interviews per offer, which is too high.' },
+  { name:'Marketing & Content', roles:['Marketing Intern','Marketing Manager','Digital Brand Manager'], icon:'📣', iconBg:'#FAEEDA', iconColor:'#854F0B',
+    insight:'Marketing Intern has the most final interviews per offer in the company (6.5 for every offer made). Digital Brand Manager has the opposite issue — the job description is so specific that only 1 in 17 applicants makes it to a screen call. Marketing Manager is screening nearly everyone through, which means we\'re not filtering at all.' },
+  { name:'Sales', roles:['Account Executive','Business Development Rep'], icon:'📈', iconBg:'#FDECEC', iconColor:'#A82828',
+    insight:'Business Dev Rep looks fine at the mid-stage. Account Executive is the biggest pipeline problem in the company — 10 screened candidates for every hiring manager interview, when the target is 3–5. Neither role has reached the offer stage yet, so we can\'t assess final-stage decisiveness. A conversation between the recruiter and Sales managers should happen now.' },
+  { name:'Support', roles:['Customer Support Rep'], icon:'🎧', iconBg:'#F1EFE8', iconColor:'#5F5E5A',
+    insight:'Only 30 candidates so far — the numbers aren\'t reliable yet. What we can see suggests the recruiter and hiring manager may not be fully aligned on who to pass through. Check back once there are 60+ candidates.' },
+  { name:'HR', roles:['HR Generalist'], icon:'👥', iconBg:'#EEEDFE', iconColor:'#3C3489',
+    insight:'There\'s a data issue: more people show up at the phone screen stage than applied. This probably means some candidates were added directly into the pipeline without going through the normal application process. This needs to be fixed in Workable before we can measure anything.' }
+];
+
+function deptJobs(d){ return d.roles.map(function(n){return JOBS.find(function(j){return j.name===n;});}).filter(Boolean); }
+function deptScore(d){
+  var s=0,t=0;
+  deptJobs(d).forEach(function(j){ [[j.r1,T1],[j.r2,T2],[j.r3,T3]].forEach(function(p){ if(p[0]!==null){t++;if(rate(p[0],p[1])===G)s++;} }); });
+  return {s:s,t:t};
+}
+
+function buildDeptStats(){
+  var el=document.getElementById('dept-stat-row-el');
+  var best=null,bestP=-1,worst=null,worstP=2;
+  DEPTS.forEach(function(d){ var sc=deptScore(d),p=sc.t?sc.s/sc.t:-1; if(p>bestP){bestP=p;best=d.name;} if(p>=0&&p<worstP){worstP=p;worst=d.name;} });
+  el.innerHTML=
+    '<div class="stat-card"><div class="stat-label">Departments fully on track</div><div class="stat-val" style="color:#56961A;">0</div><div class="stat-sub">None hit all three checks</div></div>'+
+    '<div class="stat-card"><div class="stat-label">Healthiest department</div><div class="stat-val" style="color:#56961A;font-size:17px;padding-top:4px;">'+(best||'—')+'</div><div class="stat-sub">Most checks passing</div></div>'+
+    '<div class="stat-card"><div class="stat-label">Most needs attention</div><div class="stat-val" style="color:#E24B4A;font-size:17px;padding-top:4px;">'+(worst||'—')+'</div><div class="stat-sub">Fewest checks passing</div></div>'+
+    '<div class="stat-card"><div class="stat-label">Roles not filtering well</div><div class="stat-val" style="color:#E24B4A;">8</div><div class="stat-sub">of 11 with enough data</div></div>';
+}
+
+function buildDeptCards(){
+  var el=document.getElementById('dept-cards-el'); el.innerHTML='';
+  DEPTS.forEach(function(d,i){
+    var jobs=deptJobs(d), sc=deptScore(d), pct=sc.t?sc.s/sc.t:0;
+    var card=document.createElement('div'); card.className='dept-card';
+    var roleRows=jobs.map(function(j){
+      return '<div class="dept-role-row">'
+        +'<span class="drn">'+j.name+(j.note?' <span style="font-size:11px;color:#AAA;">⚠</span>':'')+'</span>'
+        +'<div class="drp">'
+          +'<span class="drs">C1</span>'+badge(j.r1,'r1')
+          +'<span class="drs">C2</span>'+badge(j.r2,'r2')
+          +'<span class="drs">C3</span>'+badge(j.r3,'r3')
+        +'</div></div>';
+    }).join('');
+    card.innerHTML=
+      '<div class="dept-hdr" onclick="toggleDept('+i+')">'
+        +'<div class="dept-l">'
+          +'<div class="dept-ico" style="background:'+d.iconBg+';color:'+d.iconColor+';">'+d.icon+'</div>'
+          +'<div><div class="dept-nm">'+d.name+'</div><div class="dept-sub-lbl">'+jobs.length+' role'+(jobs.length!==1?'s':'')+'</div></div>'
+        +'</div>'
+        +'<div class="dept-r">'
+          +'<span class="badge '+BDGCLS[pct>=.67?G:pct>=.33?A:R]+'" style="font-size:12px;">'+(sc.t?sc.s+'/'+sc.t+' on track':'No data')+'</span>'
+          +'<span class="dept-chev" id="dchev-'+i+'">▾</span>'
+        +'</div>'
+      +'</div>'
+      +'<div class="dept-body" id="dbody-'+i+'">'
+        +roleRows
+        +'<div class="dept-insight-box">'+d.insight+'</div>'
+      +'</div>';
+    el.appendChild(card);
+  });
+}
+
+function toggleDept(i){
+  var b=document.getElementById('dbody-'+i),c=document.getElementById('dchev-'+i);
+  b.classList.toggle('open'); c.style.transform=b.classList.contains('open')?'rotate(180deg)':'';
+}
+
+function buildDeptCompare(){
+  var el=document.getElementById('dept-compare-el');
+  var checks=[
+    {key:'r1',t:T1,q:'Are we filtering applicants well?',sub:'Target: review 4–10 per screen call',max:22},
+    {key:'r2',t:T2,q:'Are the right people reaching hiring managers?',sub:'Target: 3–5 screened per HM interview',max:12},
+    {key:'r3',t:T3,q:'Are we making offer decisions quickly?',sub:'Target: offer after 2–3 final interviews',max:8}
+  ];
+  var html='<div class="legend" style="margin-bottom:18px;">'
+    +'<span><span class="leg-dot" style="background:#56961A;"></span>On track</span>'
+    +'<span><span class="leg-dot" style="background:#EF9F27;"></span>Watch</span>'
+    +'<span><span class="leg-dot" style="background:#E24B4A;"></span>Needs attention</span>'
+    +'<span><span class="leg-dot" style="background:#9AA1AE;"></span>No data</span>'
+    +'<span style="font-size:11px;color:#AAA;"> Shaded band = target range</span>'
+    +'</div>';
+  checks.forEach(function(ck){
+    html+='<div class="cmp-section">'
+      +'<div class="cmp-sec-title">Check '+(checks.indexOf(ck)+1)+'</div>'
+      +'<div class="cmp-sec-q">'+ck.q+'<span style="font-size:12px;font-weight:400;color:#AAA;"> — '+ck.sub+'</span></div>';
+    var W=280;
+    var tLo=Math.round((ck.t[0]/ck.max)*W), tHi=Math.round((ck.t[1]/ck.max)*W);
+    DEPTS.forEach(function(d){
+      var jobs=deptJobs(d);
+      var vals=jobs.map(function(j){return j[ck.key];}).filter(function(v){return v!==null;});
+      var med=vals.length?vals.reduce(function(a,b){return a+b;},0)/vals.length:null;
+      var rt=med!==null?rate(med,ck.t):N;
+      var barW=med!==null?Math.min(Math.round((med/ck.max)*W),W):0;
+      html+='<div class="cmp-row">'
+        +'<span class="cmp-name">'+d.name+'</span>'
+        +'<div class="cmp-track" style="max-width:'+W+'px;">'
+          +(med!==null?'<div class="cmp-bar" style="width:'+barW+'px;background:'+COLORS[rt]+';"></div>':'')
+          +'<div class="cmp-band" style="left:'+tLo+'px;width:'+(tHi-tLo)+'px;"></div>'
+        +'</div>'
+        +'<div class="cmp-badge-w">'+badge(med,ck.key)+'</div>'
+      +'</div>';
+    });
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+// ── Action Items ──────────────────────────────────────────
+var ACTION_TITLES = {
+  r1: { lo: 'Tighten screening — nearly every applicant is reaching the phone screen. Add clearer must-haves to the job description.',
+        hi: 'Broaden the funnel — the job description may be too narrow, filtering out too many applicants before they reach a screen.' },
+  r2: { lo: 'Align recruiter &amp; hiring manager — too many candidates are reaching the hiring manager without enough filtering first.',
+        hi: 'Loosen the recruiter screening bar — almost no one screened is making it to the hiring manager.' },
+  r3: { lo: 'Review the final-stage bar — offers are being made without enough candidates to compare at the final round.',
+        hi: 'Speed up offer decisions — too many final interviews are happening before an offer gets made. Risk of losing candidates.' }
+};
+var CHECK_LABEL = { r1: 'Check 1 · Filtering applicants', r2: 'Check 2 · Reaching hiring manager', r3: 'Check 3 · Offer decisions' };
+
+function buildActionItems() {
+  var items = [];
+  JOBS.forEach(function(j) {
+    [['r1',T1],['r2',T2],['r3',T3]].forEach(function(p) {
+      var key = p[0], t = p[1], v = j[key];
+      if (v === null) return;
+      var rt = rate(v, t);
+      if (rt === G) return;
+      var lo = v < t[0];
+      items.push({
+        id: 'ai-' + j.name.replace(/[^a-z0-9]/gi,'_') + '-' + key,
+        role: j.name,
+        checkLabel: CHECK_LABEL[key],
+        sev: rt === R ? 'high' : 'med',
+        title: ACTION_TITLES[key][lo ? 'lo' : 'hi'],
+        val: v.toFixed(1) + ':1'
+      });
+    });
+  });
+  items.sort(function(a,b) {
+    var order = { high: 0, med: 1 };
+    if (order[a.sev] !== order[b.sev]) return order[a.sev] - order[b.sev];
+    return a.role.localeCompare(b.role);
+  });
+  return items;
+}
+
+var ACTION_FILTER = 'open';
+function getActionDone() {
+  try { return JSON.parse(localStorage.getItem('zyte_ta_action_done') || '{}'); }
+  catch(e) { return {}; }
+}
+function setActionDone(done) {
+  try { localStorage.setItem('zyte_ta_action_done', JSON.stringify(done)); } catch(e) {}
+}
+function toggleAction(id) {
+  var done = getActionDone();
+  done[id] = !done[id];
+  setActionDone(done);
+  renderActions();
+}
+function setActionFilter(f, btn) {
+  ACTION_FILTER = f;
+  document.querySelectorAll('.aft').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  renderActions();
+}
+function renderActions() {
+  var items = buildActionItems();
+  var done = getActionDone();
+  var openItems = items.filter(function(i){ return !done[i.id]; });
+  var highOpen = openItems.filter(function(i){ return i.sev==='high'; }).length;
+  var medOpen = openItems.filter(function(i){ return i.sev==='med'; }).length;
+  var doneCount = items.filter(function(i){ return done[i.id]; }).length;
+
+  document.getElementById('actions-stats-el').innerHTML =
+    '<div class="stat-card"><div class="stat-label">Open items</div><div class="stat-val" style="color:var(--accent);">'+openItems.length+'</div><div class="stat-sub">across '+items.length+' total flagged</div></div>'
+    +'<div class="stat-card"><div class="stat-label">High priority</div><div class="stat-val" style="color:#E24B4A;">'+highOpen+'</div><div class="stat-sub">needs attention now</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Watch</div><div class="stat-val" style="color:#EF9F27;">'+medOpen+'</div><div class="stat-sub">close to target</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Completed</div><div class="stat-val" style="color:#56961A;">'+doneCount+'</div><div class="stat-sub">marked resolved</div></div>';
+
+  var shown = items.filter(function(i) {
+    if (ACTION_FILTER === 'open') return !done[i.id];
+    if (ACTION_FILTER === 'done') return !!done[i.id];
+    return true;
+  });
+
+  var el = document.getElementById('actions-list-el');
+  if (!shown.length) {
+    el.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:20px 0;">Nothing here — '+(ACTION_FILTER==='done' ? 'no items completed yet.' : 'all clear!')+'</p>';
+    return;
+  }
+  el.innerHTML = shown.map(function(it) {
+    var isDone = !!done[it.id];
+    return '<div class="action-card'+(isDone?' action-done':'')+'">'
+      + '<label class="action-check"><input type="checkbox" '+(isDone?'checked':'')+' onchange="toggleAction(\''+it.id+'\')"><span class="action-checkmark"></span></label>'
+      + '<div class="action-body">'
+        + '<div class="action-top"><span class="action-role">'+it.role+'</span>'
+          + '<span class="badge '+(it.sev==='high'?'badge-r':'badge-a')+'">'+(it.sev==='high'?'High priority':'Watch')+'</span></div>'
+        + '<div class="action-title">'+it.title+'</div>'
+        + '<div class="action-meta">'+it.checkLabel+' · currently '+it.val
+          + ' <button class="ruc-pipeline-link" onclick="selectJob(\''+it.role.replace(/'/g,"\\'")+'\')">→ View pipeline</button></div>'
+      + '</div></div>';
+  }).join('');
+}
+
+// ── Trends ────────────────────────────────────────────────
+var TREND_WEEKS  = ['Apr 27','May 4','May 11','May 18','May 25','Jun 1','Jun 8','Jun 15'];
+var TREND_CHECK1 = [18, 15, 12, 14, 10, 11, 9, 9];
+var TREND_CHECK2 = [12, 15, 18, 22, 25, 28, 27, 30];
+var TREND_CHECK3 = [67, 60, 55, 58, 50, 45, 42, 50];
+var TREND_TTH    = [40, 39, 41, 38, 37, 36, 38, 38];
+var TREND_OAR    = [85, 86, 88, 87, 90, 89, 91, 89];
+
+function trendDeltaHTML(vals, goodDir, unit) {
+  var curr = vals[vals.length-1], prev = vals[vals.length-2];
+  var diff = curr - prev;
+  if (Math.abs(diff) < 0.05) return '<span class="trend-delta trend-flat">— flat vs last week</span>';
+  var isUp = diff > 0;
+  var isGood = goodDir === 'up' ? isUp : !isUp;
+  var cls = isUp ? (isGood?'trend-up-good':'trend-up-bad') : (isGood?'trend-down-good':'trend-down-bad');
+  var arrow = isUp ? '▲' : '▼';
+  var diffStr = Math.abs(diff)%1===0 ? Math.abs(diff).toFixed(0) : Math.abs(diff).toFixed(1);
+  return '<span class="trend-delta '+cls+'">'+arrow+' '+diffStr+(unit||'')+' vs last week</span>';
+}
+
+function buildTrends() {
+  document.getElementById('trends-stats-el').innerHTML =
+    '<div class="stat-card"><div class="stat-label">Check 1 · Filtering — on track</div><div class="stat-val" style="color:#E24B4A;">'+TREND_CHECK1[TREND_CHECK1.length-1]+'%</div>'+trendDeltaHTML(TREND_CHECK1,'up','pt')+'</div>'
+    +'<div class="stat-card"><div class="stat-label">Check 2 · HM handoff — on track</div><div class="stat-val" style="color:#EF9F27;">'+TREND_CHECK2[TREND_CHECK2.length-1]+'%</div>'+trendDeltaHTML(TREND_CHECK2,'up','pt')+'</div>'
+    +'<div class="stat-card"><div class="stat-label">Check 3 · Offer speed — on track</div><div class="stat-val" style="color:#56961A;">'+TREND_CHECK3[TREND_CHECK3.length-1]+'%</div>'+trendDeltaHTML(TREND_CHECK3,'up','pt')+'</div>'
+    +'<div class="stat-card"><div class="stat-label">Avg. time to hire</div><div class="stat-val" style="color:var(--text);">'+TREND_TTH[TREND_TTH.length-1]+'<span style="font-size:14px;font-weight:400;">d</span></div>'+trendDeltaHTML(TREND_TTH,'down','d')+'</div>';
+
+  document.getElementById('trend-legend-el').innerHTML =
+    '<span><i style="background:#E24B4A;"></i>Check 1 · Filtering</span>'
+    +'<span><i style="background:#EF9F27;"></i>Check 2 · HM handoff</span>'
+    +'<span><i style="background:#56961A;"></i>Check 3 · Offer speed</span>';
+
+  drawLineMulti('chart-trend-checks', 660, 220, TREND_WEEKS, [
+    {vals: TREND_CHECK1, col:'#E24B4A'},
+    {vals: TREND_CHECK2, col:'#EF9F27'},
+    {vals: TREND_CHECK3, col:'#56961A'}
+  ], 0, 100, '%');
+
+  drawLineMulti('chart-trend-tth', 320, 180, TREND_WEEKS, [{vals: TREND_TTH, col:'#3F4FED'}], 0, 50, 'd');
+  drawLineMulti('chart-trend-oar', 320, 180, TREND_WEEKS, [{vals: TREND_OAR, col:'#56961A'}], 70, 100, '%');
+}
+
+function drawLineMulti(id, W, H, labels, series, yMin, yMax, unit) {
+  var c = document.getElementById(id); if (!c) return;
+  var ctx = c.getContext('2d');
+  var pad = {t:14, r:14, b:28, l:34};
+  ctx.clearRect(0,0,W,H); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,W,H);
+  var plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  var steps = 4;
+  for (var g=0; g<=steps; g++) {
+    var val = yMin + (yMax-yMin)*(g/steps);
+    var gy = pad.t + plotH*(1-g/steps);
+    ctx.strokeStyle = 'rgba(5,12,77,0.07)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(W-pad.r, gy); ctx.stroke();
+    ctx.fillStyle = '#8891A5'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(Math.round(val)+(unit||''), pad.l-5, gy+3);
+  }
+  var stepX = plotW / (labels.length-1);
+  labels.forEach(function(lbl,i){
+    ctx.fillStyle = '#8891A5'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(lbl, pad.l + i*stepX, H-pad.b+14);
+  });
+  series.forEach(function(s){
+    ctx.beginPath();
+    s.vals.forEach(function(v,i){
+      var x = pad.l + i*stepX;
+      var y = pad.t + plotH*(1-(v-yMin)/(yMax-yMin));
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle = s.col; ctx.lineWidth = 2.25; ctx.lineJoin='round'; ctx.stroke();
+    s.vals.forEach(function(v,i){
+      var x = pad.l + i*stepX;
+      var y = pad.t + plotH*(1-(v-yMin)/(yMax-yMin));
+      ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fillStyle = s.col; ctx.fill();
+      ctx.lineWidth=1.5; ctx.strokeStyle='#FFFFFF'; ctx.stroke();
+    });
+  });
+}
+
+// ── Quality of Hire ────────────────────────────────────────
+var QOH_HIRES = [
+  {name:'Priya Nair',     role:'Machine Learning Engineer',  dept:'Engineering',          hired:'Dec 2025', closeScore:4.5, sixMoScore:4.2, retention:'retained', enps:9},
+  {name:'Tom Bakker',     role:'Web Developer',              dept:'Engineering',          hired:'Nov 2025', closeScore:4.0, sixMoScore:3.1, retention:'retained', enps:6},
+  {name:'Grace Liu',      role:'Customer Support Rep',       dept:'Support',              hired:'Oct 2025', closeScore:4.6, sixMoScore:4.4, retention:'retained', enps:9},
+  {name:'Marcus Webb',    role:'Director of Finance',        dept:'Finance',              hired:'Sep 2025', closeScore:2.5, sixMoScore:2.8, retention:'left',     enps:3},
+  {name:'Sofia Marin',    role:'Marketing Manager',          dept:'Marketing & Content',  hired:'Aug 2025', closeScore:4.2, sixMoScore:3.9, retention:'retained', enps:8},
+  {name:'Daniel Osei',    role:'Business Development Rep',   dept:'Sales',                hired:'Jul 2025', closeScore:4.7, sixMoScore:4.5, retention:'retained', enps:10},
+  {name:'Elena Popescu',  role:'Digital Brand Manager',      dept:'Marketing & Content',  hired:'Jun 2025', closeScore:2.0, sixMoScore:2.5, retention:'left',     enps:2},
+  {name:'Ahmed Farouk',   role:'HR Generalist',              dept:'HR',                   hired:'May 2025', closeScore:3.4, sixMoScore:3.6, retention:'retained', enps:7},
+  {name:'Lucia Rossi',    role:'Account Executive',          dept:'Sales',                hired:'Apr 2025', closeScore:2.6, sixMoScore:3.0, retention:'retained', enps:5},
+  {name:'Noor Al-Sayed',  role:'Financial Analyst',          dept:'Finance',              hired:'Mar 2025', closeScore:4.8, sixMoScore:4.6, retention:'retained', enps:10}
+];
+
+function enpsCategory(v){ return v>=9?'promoter':v>=7?'passive':'detractor'; }
+function starsHTML(score){
+  var full = Math.round(score);
+  var s = '';
+  for (var i=1;i<=5;i++) s += (i<=full ? '★' : '☆');
+  return '<span class="stars">'+s+'</span> <span style="color:var(--text3);font-size:11px;">'+score.toFixed(1)+'/5</span>';
+}
+function retentionBadge(r){
+  if (r==='retained') return '<span class="badge badge-g">✅ Retained</span>';
+  if (r==='left') return '<span class="badge badge-r">🔴 Left &lt;6mo</span>';
+  return '<span class="badge badge-n">— Too early</span>';
+}
+function enpsBadge(v){
+  var cat = enpsCategory(v);
+  var cls = cat==='promoter'?'badge-g':cat==='passive'?'badge-a':'badge-r';
+  var lbl = cat==='promoter'?'Promoter':cat==='passive'?'Passive':'Detractor';
+  return '<span class="badge '+cls+'">'+v+' · '+lbl+'</span>';
+}
+
+function buildQualityOfHire() {
+  var avgClose = QOH_HIRES.reduce(function(a,h){return a+h.closeScore;},0) / QOH_HIRES.length;
+  var avgSixMo = QOH_HIRES.reduce(function(a,h){return a+h.sixMoScore;},0) / QOH_HIRES.length;
+  var retained = QOH_HIRES.filter(function(h){return h.retention==='retained';}).length;
+  var measured = QOH_HIRES.filter(function(h){return h.retention!=='pending';}).length;
+  var retentionRate = Math.round(retained/measured*100);
+  var promoters = QOH_HIRES.filter(function(h){return enpsCategory(h.enps)==='promoter';}).length;
+  var detractors = QOH_HIRES.filter(function(h){return enpsCategory(h.enps)==='detractor';}).length;
+  var enpsScore = Math.round((promoters/QOH_HIRES.length - detractors/QOH_HIRES.length)*100);
+  var qohIndex = Math.round(((avgSixMo/5*100) + retentionRate + ((enpsScore+100)/2)) / 3);
+
+  document.getElementById('qoh-stats-el').innerHTML =
+    '<div class="stat-card"><div class="stat-label">Process satisfaction (at close)</div><div class="stat-val" style="color:var(--text);">'+avgClose.toFixed(1)+'<span style="font-size:14px;font-weight:400;">/5</span></div><div class="stat-sub">survey sent when req closes</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Hire satisfaction (6-month)</div><div class="stat-val" style="color:var(--text);">'+avgSixMo.toFixed(1)+'<span style="font-size:14px;font-weight:400;">/5</span></div><div class="stat-sub">survey sent at 6-month mark</div></div>'
+    +'<div class="stat-card"><div class="stat-label">6-month retention</div><div class="stat-val" style="color:'+(retentionRate>=85?'#56961A':retentionRate>=70?'#EF9F27':'#E24B4A')+';">'+retentionRate+'%</div><div class="stat-sub">'+retained+' of '+measured+' hires retained</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Hiring manager eNPS</div><div class="stat-val" style="color:'+(enpsScore>=30?'#56961A':enpsScore>=0?'#EF9F27':'#E24B4A')+';">'+(enpsScore>0?'+':'')+enpsScore+'</div><div class="stat-sub">would HMs recommend the process?</div></div>';
+
+  document.getElementById('qoh-index-el').innerHTML = qohIndex+'<span style="font-size:20px;font-weight:600;">/100</span>';
+
+  var t = document.getElementById('qoh-table-el');
+  t.innerHTML = '<thead><tr><th>Hire</th><th>Role</th><th>Department</th><th>Hired</th><th>Process satisfaction (close)</th><th>Hire satisfaction (6mo)</th><th>6-mo retention</th><th>HM eNPS response</th></tr></thead>';
+  var tb = document.createElement('tbody');
+  QOH_HIRES.forEach(function(h){
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td style="font-weight:600;color:var(--text);">'+h.name+'</td>'
+      +'<td>'+h.role+'</td>'
+      +'<td style="color:var(--text2);">'+h.dept+'</td>'
+      +'<td style="color:var(--text3);">'+h.hired+'</td>'
+      +'<td>'+starsHTML(h.closeScore)+'</td>'
+      +'<td>'+starsHTML(h.sixMoScore)+'</td>'
+      +'<td>'+retentionBadge(h.retention)+'</td>'
+      +'<td>'+enpsBadge(h.enps)+'</td>';
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+}
+
+// ── Cost per Hire ─────────────────────────────────────────
+// Recruiter cost is a fixed allocation of the assigned recruiter's monthly loaded
+// salary (not hours logged), split by department based on agreed time-allocation,
+// for the quarter (3 months) covered by this report.
+var CPH_DEPTS = [
+  {dept:'Engineering',         short:'Engineering', hires:4, ad:2800, agency:9000, recruiterCost:10100, referral:1000, other:1200},
+  {dept:'Finance',             short:'Finance',     hires:2, ad:1200, agency:3500, recruiterCost:4100,  referral:500,  other:300},
+  {dept:'Marketing & Content', short:'Marketing',   hires:3, ad:2100, agency:2000, recruiterCost:5800,  referral:0,    other:400},
+  {dept:'Sales',               short:'Sales',       hires:2, ad:900,  agency:0,    recruiterCost:5150,  referral:750,  other:200},
+  {dept:'HR',                  short:'HR',          hires:1, ad:600,  agency:0,    recruiterCost:2050,  referral:0,    other:150},
+  {dept:'Support',             short:'Support',     hires:1, ad:400,  agency:0,    recruiterCost:1550,  referral:0,    other:100}
+];
+var CPH_TARGET = 3000;
+
+function cphTotal(d){ return d.ad+d.agency+d.recruiterCost+d.referral+d.other; }
+
+function buildCostPerHire() {
+  var totalCost = CPH_DEPTS.reduce(function(a,d){return a+cphTotal(d);},0);
+  var totalHires = CPH_DEPTS.reduce(function(a,d){return a+d.hires;},0);
+  var overallCPH = Math.round(totalCost/totalHires);
+  var withCPH = CPH_DEPTS.map(function(d){ return {dept:d.dept, cph: cphTotal(d)/d.hires}; });
+  var highest = withCPH.reduce(function(a,b){return b.cph>a.cph?b:a;});
+  var lowest = withCPH.reduce(function(a,b){return b.cph<a.cph?b:a;});
+
+  document.getElementById('cph-stats-el').innerHTML =
+    '<div class="stat-card"><div class="stat-label">Overall cost per hire</div><div class="stat-val" style="color:'+(overallCPH<=CPH_TARGET?'#56961A':'#E24B4A')+';">$'+overallCPH.toLocaleString()+'</div><div class="stat-sub">Target: under $'+CPH_TARGET.toLocaleString()+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Total recruiting spend</div><div class="stat-val" style="color:var(--text);">$'+totalCost.toLocaleString()+'</div><div class="stat-sub">across '+totalHires+' hires, this quarter</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Highest cost per hire</div><div class="stat-val" style="color:#E24B4A;font-size:19px;padding-top:5px;">'+highest.dept+'</div><div class="stat-sub">$'+Math.round(highest.cph).toLocaleString()+' per hire</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Lowest cost per hire</div><div class="stat-val" style="color:#56961A;font-size:19px;padding-top:5px;">'+lowest.dept+'</div><div class="stat-sub">$'+Math.round(lowest.cph).toLocaleString()+' per hire</div></div>';
+
+  drawBarH('chart-cph', 660, 220,
+    CPH_DEPTS.map(function(d){return d.short;}),
+    CPH_DEPTS.map(function(d){return Math.round(cphTotal(d)/d.hires);}),
+    '#3F4FED');
+
+  var t = document.getElementById('cph-table-el');
+  t.innerHTML = '<thead><tr><th>Department</th><th>Hires</th><th>Advertising</th><th>Agency fees</th><th>Recruiter cost (allocated)</th><th>Referral bonus</th><th>Other</th><th>Total</th><th>Cost / hire</th></tr></thead>';
+  var tb = document.createElement('tbody');
+  CPH_DEPTS.forEach(function(d){
+    var total = cphTotal(d);
+    var cph = Math.round(total/d.hires);
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td style="font-weight:600;color:var(--text);">'+d.dept+'</td>'
+      +'<td>'+d.hires+'</td>'
+      +'<td>$'+d.ad.toLocaleString()+'</td>'
+      +'<td>$'+d.agency.toLocaleString()+'</td>'
+      +'<td>$'+d.recruiterCost.toLocaleString()+'</td>'
+      +'<td>$'+d.referral.toLocaleString()+'</td>'
+      +'<td>$'+d.other.toLocaleString()+'</td>'
+      +'<td style="font-weight:600;">$'+total.toLocaleString()+'</td>'
+      +'<td class="'+(cph>CPH_TARGET?'cph-over':'cph-under')+'">$'+cph.toLocaleString()+'</td>';
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+}
+
+// ── Budget ────────────────────────────────────────────────
+var BUDGET_CLOSED = [
+  {role:'Web Developer',          dept:'Engineering',         closed:'Feb 2026', budget:98000,  actual:95000},
+  {role:'Director of Finance',    dept:'Finance',             closed:'Mar 2026', budget:145000, actual:152000},
+  {role:'Account Executive',      dept:'Sales',               closed:'Apr 2026', budget:75000,  actual:72000},
+  {role:'Marketing Intern (x2)',  dept:'Marketing & Content', closed:'May 2026', budget:64000,  actual:61000},
+  {role:'Customer Support Rep',   dept:'Support',             closed:'Jun 2026', budget:42000,  actual:44500}
+];
+var BUDGET_OPEN = [
+  {role:'Machine Learning Engineer',  dept:'Engineering',         budget:135000},
+  {role:'Engineering Talent Pool',    dept:'Engineering',         budget:115000},
+  {role:'Marketing Manager',          dept:'Marketing & Content', budget:92000},
+  {role:'Digital Brand Manager',      dept:'Marketing & Content', budget:88000},
+  {role:'Financial Analyst',          dept:'Finance',             budget:70000},
+  {role:'Dental Hygienist',           dept:'Other',               budget:68000},
+  {role:'HR Generalist',              dept:'HR',                  budget:58000},
+  {role:'Business Development Rep',   dept:'Sales',               budget:55000}
+];
+var OOB_START = 30000;
+
+function buildBudget() {
+  var timeline = ['Start'];
+  var balances = [OOB_START];
+  var running = OOB_START;
+  var underCount = 0, overCount = 0;
+  var totalBudget = 0, totalActual = 0;
+
+  BUDGET_CLOSED.forEach(function(r) {
+    var variance = r.budget - r.actual;
+    running += variance;
+    totalBudget += r.budget;
+    totalActual += r.actual;
+    if (variance > 0) underCount++; else if (variance < 0) overCount++;
+    timeline.push(r.role.replace(' (x2)', ''));
+    balances.push(running);
+  });
+
+  var pool = running;
+  var netVariance = totalBudget - totalActual;
+  var openTotal = BUDGET_OPEN.reduce(function(a,r){return a+r.budget;}, 0);
+
+  document.getElementById('budget-stats-el').innerHTML =
+    '<div class="stat-card"><div class="stat-label">OOB pool balance</div><div class="stat-val" style="color:'+(pool>=20000?'#56961A':pool>=10000?'#EF9F27':'#E24B4A')+';">$'+pool.toLocaleString()+'</div><div class="stat-sub">started the year at $'+OOB_START.toLocaleString()+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Closed-role variance</div><div class="stat-val" style="color:'+(netVariance>=0?'#56961A':'#E24B4A')+';">'+(netVariance>=0?'+':'-')+'$'+Math.abs(netVariance).toLocaleString()+'</div><div class="stat-sub">'+underCount+' under budget · '+overCount+' over</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Closed-role spend</div><div class="stat-val" style="color:var(--text);">$'+totalActual.toLocaleString()+'</div><div class="stat-sub">vs $'+totalBudget.toLocaleString()+' budgeted</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Open roles pending</div><div class="stat-val" style="color:#2B5AC9;">'+BUDGET_OPEN.length+'</div><div class="stat-sub">$'+openTotal.toLocaleString()+' reserved</div></div>';
+
+  drawLineMulti('chart-oob', 660, 220, timeline, [
+    {vals: balances.map(function(v){return Math.round(v/1000);}), col:'#3F4FED'}
+  ], 0, 40, 'k');
+
+  var t1 = document.getElementById('budget-closed-table-el');
+  t1.innerHTML = '<thead><tr><th>Role</th><th>Department</th><th>Closed</th><th>Budget</th><th>Actual</th><th>Variance</th><th>OOB pool after</th></tr></thead>';
+  var tb1 = document.createElement('tbody');
+  BUDGET_CLOSED.forEach(function(r, i) {
+    var variance = r.budget - r.actual;
+    var afterBalance = balances[i+1];
+    var badge = variance > 0
+      ? '<span class="badge badge-g">Under by $'+variance.toLocaleString()+'</span>'
+      : variance < 0
+        ? '<span class="badge badge-r">Over by $'+Math.abs(variance).toLocaleString()+'</span>'
+        : '<span class="badge badge-n">On budget</span>';
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td style="font-weight:600;color:var(--text);">'+r.role+'</td>'
+      +'<td style="color:var(--text2);">'+r.dept+'</td>'
+      +'<td style="color:var(--text3);">'+r.closed+'</td>'
+      +'<td>$'+r.budget.toLocaleString()+'</td>'
+      +'<td>$'+r.actual.toLocaleString()+'</td>'
+      +'<td>'+badge+'</td>'
+      +'<td style="font-weight:600;color:var(--text);">$'+afterBalance.toLocaleString()+'</td>';
+    tb1.appendChild(tr);
+  });
+  t1.appendChild(tb1);
+
+  var t2 = document.getElementById('budget-open-table-el');
+  t2.innerHTML = '<thead><tr><th>Role</th><th>Department</th><th>Budget reserved</th><th>Actual</th><th>Status</th></tr></thead>';
+  var tb2 = document.createElement('tbody');
+  BUDGET_OPEN.forEach(function(r) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td style="font-weight:600;color:var(--text);">'+r.role+'</td>'
+      +'<td style="color:var(--text2);">'+r.dept+'</td>'
+      +'<td>$'+r.budget.toLocaleString()+'</td>'
+      +'<td style="color:var(--text3);">—</td>'
+      +'<td><span class="badge badge-n">Pending close</span></td>';
+    tb2.appendChild(tr);
+  });
+  t2.appendChild(tb2);
+}
+
+// ── Navigation ────────────────────────────────────────────
+var HIW_TABS = ['overview','allroles','ranked','detail','departments'];
+function updateHIW(id) {
+  var hiw = document.getElementById('how-it-works-el');
+  if (hiw) hiw.style.display = HIW_TABS.indexOf(id) > -1 ? '' : 'none';
+}
+function showView(id, btn) {
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  document.getElementById(id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  else document.querySelectorAll('.tab')[3].classList.add('active');
+  updateHIW(id);
+}
+function showDSub(id, btn) {
+  document.querySelectorAll('.dsv').forEach(function(v){v.classList.remove('active');});
+  document.querySelectorAll('.dst').forEach(function(t){t.classList.remove('active');});
+  document.getElementById(id).classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+updateHIW('overview');
+buildTable();
+buildRanked();
+buildDetailSelect();
+renderDetail();
+buildDeptStats();
+buildDeptCards();
+buildDeptCompare();
+renderActions();
+buildWeekly();
+buildTrends();
+buildQualityOfHire();
+buildCostPerHire();
+buildBudget();
+
+// Init world map when its tab is first clicked
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click', function(){
+    if(this.getAttribute('onclick') && this.getAttribute('onclick').includes('worldmap')){
+      setTimeout(function(){ initMap(); buildMapSidebar(); }, 80);
+    }
+  });
+});
+
+// ── Weekly Update ─────────────────────────────────────────
+function showWTab(id, btn) {
+  document.querySelectorAll('.wtab-view').forEach(function(v){v.classList.remove('active');});
+  document.querySelectorAll('.wtab').forEach(function(t){t.classList.remove('active');});
+  document.getElementById(id).classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+function showDataYear(id, btn) {
+  document.querySelectorAll('.dy').forEach(function(v){v.classList.remove('active');});
+  document.querySelectorAll('.dyt').forEach(function(t){t.classList.remove('active');});
+  document.getElementById(id).classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+function buildWeekly() {
+  function currentStage(j) {
+    var s = j.stages;
+    if (s.Hired && s.Hired>0)  return {label:'Hired', cls:'stage-offer', text:'At least one hire recorded.'};
+    if (s.Offer && s.Offer>0)  return {label:'Offer extended', cls:'stage-offer', text:s.Offer+' offer'+(s.Offer>1?'s':'')+' extended, awaiting response.'};
+    var fk = ['HM Interview','Exec Interview','VP Interview','Technical Interview','Video Interview'];
+    var inF = fk.filter(function(k){return s[k]&&s[k]>0;});
+    if (inF.length) {
+      var cnt=inF.reduce(function(a,k){return a+(s[k]||0);},0);
+      return {label:'Final interviews', cls:'stage-final', text:cnt+' candidate'+(cnt>1?'s':'')+' at final stage ('+inF.join(', ')+').'};
+    }
+    if (s.Assessment&&s.Assessment>0) return {label:'Assessment', cls:'stage-screen', text:s.Assessment+' candidate'+(s.Assessment>1?'s':'')+' completing assessments.'};
+    if (s['Phone Screen']&&s['Phone Screen']>0) return {label:'Screening', cls:'stage-screen', text:s['Phone Screen']+' candidate'+(s['Phone Screen']>1?'s':'')+' at phone screen stage.'};
+    if (j.note) return {label:'Data issue', cls:'stage-prep', text:j.note};
+    return {label:'Early stage', cls:'stage-prep', text:'Pipeline active — candidates in sourcing or initial contact.'};
+  }
+  function roleIcon(name) {
+    var n=name.toLowerCase();
+    if(/engineer|developer|ml|machine|web|tech/.test(n)) return '🧠';
+    if(/finance|analyst|financial/.test(n)) return '💸';
+    if(/marketing|brand|content/.test(n)) return '📣';
+    if(/sales|account|business dev|revenue/.test(n)) return '📈';
+    if(/support|customer/.test(n)) return '🎧';
+    if(/hr|generalist|hygienist/.test(n)) return '👥';
+    if(/designer|product/.test(n)) return '🎨';
+    return '💼';
+  }
+
+  var active=[], hired=[], nodata=[];
+  var totalHired=0, totalOffers=0, atFinal=0;
+  var fkAll=['HM Interview','Exec Interview','VP Interview','Technical Interview','Video Interview'];
+
+  JOBS.forEach(function(j) {
+    totalHired += (j.stages.Hired||0);
+    totalOffers += (j.stages.Offer||0);
+    if(fkAll.some(function(k){return j.stages[k]&&j.stages[k]>0;})) atFinal++;
+    var st=currentStage(j), sc=score(j), pct=sc.t?sc.s/sc.t:0;
+    var hbadge=sc.t?'<span class="badge '+BDGCLS[pct>=.67?G:pct>=.33?A:R]+'" style="font-size:11px;">'+sc.s+'/'+sc.t+' checks on track</span>':'<span class="badge badge-n" style="font-size:11px;">No pipeline data</span>';
+    var card='<div class="role-update-card">'
+      +'<div class="ruc-icon">'+roleIcon(j.name)+'</div>'
+      +'<div class="ruc-body">'
+        +'<div class="ruc-top"><span class="ruc-title">'+j.name+'</span><span class="stage-tag '+st.cls+'">'+st.label+'</span>'+hbadge+'</div>'
+        +'<div class="ruc-status" style="margin-top:5px;">'+st.text+' <span style="color:#AAA;font-size:12px;">'+j.total+' people in pipeline.</span></div>'
+        +'<button class="ruc-pipeline-link" onclick="selectJob(\''+j.name.replace(/'/g,"\\'")+'\')">→ View full pipeline breakdown</button>'
+      +'</div></div>';
+    if(j.stages.Hired&&j.stages.Hired>0) hired.push(card);
+    else if(!sc.t) nodata.push(card);
+    else active.push(card);
+  });
+
+  document.getElementById('weekly-stats-el').innerHTML=
+    '<div class="stat-card"><div class="stat-label">Active pipelines</div><div class="stat-val" style="color:#2B5AC9;">'+active.length+'</div><div class="stat-sub">roles in process</div></div>'
+    +'<div class="stat-card"><div class="stat-label">At final stage</div><div class="stat-val" style="color:#5B21B6;">'+atFinal+'</div><div class="stat-sub">candidates at final interviews</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Offers extended</div><div class="stat-val" style="color:#EF9F27;">'+totalOffers+'</div><div class="stat-sub">across all active roles</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Hires confirmed</div><div class="stat-val" style="color:#56961A;">'+totalHired+'</div><div class="stat-sub">hired stage reached</div></div>';
+
+  var allCards = active.concat(hired).concat(nodata);
+  document.getElementById('weekly-active-el').innerHTML = allCards.join('');
+
+  // Joiners tab — built from roles that have Hired stage
+  var joinersHTML = '';
+  var joinersData = [
+    {init:'FA', name:'Alex Fontaine', role:'Financial Analyst', hm:'Rachel D.', start:'Apr 14', ttf:34, bg:'#E8F5DC', fg:'#3B6D11'},
+    {init:'WD', name:'Chris Waldron', role:'Web Developer', hm:'Sam P.', start:'May 5', ttf:41, bg:'#E0F0FF', fg:'#1A5FA3'},
+    {init:'CS', name:'Dana Reyes', role:'Customer Support Rep', hm:'Marco T.', start:'Apr 28', ttf:29, bg:'#FEF3E2', fg:'#92540C'},
+  ];
+  joinersData.forEach(function(p) {
+    joinersHTML+='<div class="joiner-card">'
+      +'<div class="joiner-avatar" style="background:'+p.bg+';color:'+p.fg+';">'+p.init+'</div>'
+      +'<div class="joiner-body"><div class="joiner-name">'+p.name+'</div><div class="joiner-role">'+p.role+'</div><div class="joiner-meta">Hiring manager: '+p.hm+'</div></div>'
+      +'<div class="joiner-right"><div class="joiner-date">Starts '+p.start+'</div><div class="joiner-ttfill">⏱ '+p.ttf+' days to hire</div></div>'
+      +'</div>';
+  });
+  document.getElementById('weekly-joiners-el').innerHTML = joinersHTML;
+
+  // Draw charts after a short delay to ensure canvas is in DOM
+  setTimeout(drawCharts, 100);
+}
+
+function drawCharts() {
+  drawBarV('chart-stage',
+    ['New','Sourcing','HR Screen','Task','Manager','Final','Ref','Offer','Accepted'],
+    [1,2,1,2,2,5,1,3,2], '#2B5AC9', 340, 220);
+
+  drawPieChart('chart-source', 280, 220,
+    [{l:'LinkedIn',v:44,col:'#3B82F6'},{l:'Referral',v:18,col:'#EF4444'},{l:'Internal',v:12,col:'#F59E0B'},
+     {l:'Other',v:10,col:'#10B981'},{l:'Workable',v:9,col:'#06B6D4'},{l:'Agency',v:7,col:'#8B5CF6'}]);
+
+  drawPieChart('chart-level', 280, 220,
+    [{l:'P1',v:5,col:'#6EE7B7'},{l:'P2',v:15,col:'#3B82F6'},{l:'P3',v:25,col:'#8B5CF6'},
+     {l:'M2',v:5,col:'#F59E0B'},{l:'M3',v:10,col:'#EF4444'},{l:'M4',v:10,col:'#EC4899'},
+     {l:'B1',v:10,col:'#10B981'},{l:'P4',v:20,col:'#F97316'}]);
+
+  drawPieChart('chart-gender', 280, 220,
+    [{l:'Male',v:62,col:'#3B82F6'},{l:'Female',v:30,col:'#EC4899'},{l:'Non-binary/Other',v:8,col:'#A3A3A3'}]);
+
+  // Hires by Department — horizontal bars
+  drawBarH('chart-dept', 340, 240,
+    ['Sales','Tech','Delivery','Marketing','Leadership','Product','Legal','Finance'],
+    [10, 8, 7, 5, 3, 3, 2, 2], '#F97316');
+
+  // Type of Employment — vertical bars
+  drawBarV('chart-emp-type',
+    ['Employee','Contractor','EOR/PEO','Internal','Freelancer'],
+    [23, 11, 6, 4, 2], '#10B981', 320, 240);
+
+  // Type of Hire — horizontal bars
+  drawBarH('chart-hire-type', 340, 200,
+    ['Total','New hire','Replacement'],
+    [25, 13, 12], '#EC4899');
+
+  // Time to hire
+  (function(){
+    var c=document.getElementById('chart-tth'); if(!c)return;
+    var ctx=c.getContext('2d');
+    var cats=['Engineering','Sales','Marketing','Finance','Support','HR'];
+    var vals=[48,35,38,42,28,44];
+    var W=c.width,H=c.height,pad={t:14,r:16,b:46,l:44};
+    var bw=(W-pad.l-pad.r)/cats.length*0.55, gap=(W-pad.l-pad.r)/cats.length;
+    var maxV=60;
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,W,H);
+    var ty=pad.t+(H-pad.t-pad.b)*(1-44/maxV);
+    ctx.setLineDash([4,3]); ctx.strokeStyle='#E24B4A'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(pad.l,ty); ctx.lineTo(W-pad.r,ty); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle='#E24B4A'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+    ctx.fillText('Avg 44d',W-pad.r,ty-4);
+    for(var g=0;g<=maxV;g+=10){
+      var gy=pad.t+(H-pad.t-pad.b)*(1-g/maxV);
+      ctx.strokeStyle='rgba(5,12,77,0.08)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(pad.l,gy); ctx.lineTo(W-pad.r,gy); ctx.stroke();
+      ctx.fillStyle='#AAA'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+      ctx.fillText(g+'d',pad.l-4,gy+3);
+    }
+    vals.forEach(function(v,i){
+      var x=pad.l+i*gap+(gap-bw)/2, barH=(H-pad.t-pad.b)*(v/maxV), y=H-pad.b-barH;
+      var col=v>44?'#E24B4A':v>35?'#EF9F27':'#56961A';
+      ctx.fillStyle=col;
+      if(ctx.roundRect) ctx.roundRect(x,y,bw,barH,3); else ctx.rect(x,y,bw,barH);
+      ctx.fill();
+      ctx.fillStyle='#555'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(cats[i],x+bw/2,H-pad.b+14);
+      ctx.fillStyle='#fff'; ctx.font='bold 10px sans-serif';
+      ctx.fillText(v+'d',x+bw/2,y+barH/2+4);
+    });
+  })();
+
+  // Offer acceptance donut
+  (function(){
+    var c=document.getElementById('chart-oar'); if(!c)return;
+    var ctx=c.getContext('2d');
+    var W=c.width,H=c.height,cx=W/2,cy=H/2-8,r=Math.min(W,H)*0.35,ri=r*0.6;
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,W,H);
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle='#EEE'; ctx.fill();
+    var s=-Math.PI/2;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,s,s+Math.PI*2*0.89); ctx.closePath();
+    ctx.fillStyle='#56961A'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,cy,ri,0,Math.PI*2); ctx.fillStyle='#F5F5F2'; ctx.fill();
+    ctx.fillStyle='#1A1A18'; ctx.font='bold 22px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('89%',cx,cy+7);
+    ctx.fillStyle='#AAA'; ctx.font='11px sans-serif'; ctx.fillText('acceptance',cx,cy+22);
+    ctx.fillStyle='#56961A'; ctx.fillRect(cx-38,H-20,10,10);
+    ctx.fillStyle='#555'; ctx.font='11px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('Accepted 89%',cx-24,H-11);
+  })();
+
+  drawCompaChart();
+}
+
+// ── Compa-Ratio by Department ───────────────────────────────
+var COMPA_DEPTS = [
+  {dept:'Finance',             short:'Finance',     ratio:104},
+  {dept:'Engineering',         short:'Engineering', ratio:89},
+  {dept:'Marketing & Content', short:'Marketing',   ratio:92},
+  {dept:'Sales',               short:'Sales',       ratio:85},
+  {dept:'Support',             short:'Support',     ratio:98},
+  {dept:'HR',                  short:'HR',          ratio:91}
+];
+
+function drawCompaChart() {
+  var overallEl = document.getElementById('comp-overall-val');
+  if (overallEl) {
+    var avg = COMPA_DEPTS.reduce(function(a,d){return a+d.ratio;},0) / COMPA_DEPTS.length;
+    overallEl.textContent = avg.toFixed(1)+'%';
+  }
+
+  var c = document.getElementById('chart-compa'); if (!c) return;
+  var ctx = c.getContext('2d');
+  var W = c.width, H = c.height, pad = {t:20, r:16, b:32, l:44};
+  var lo = 95, hi = 105, minV = 70, maxV = 115;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,W,H);
+
+  function yFor(v){ return pad.t + (H-pad.t-pad.b) * (1 - (v-minV)/(maxV-minV)); }
+
+  // Target band (95–105%)
+  var bandTop = yFor(hi), bandBot = yFor(lo);
+  ctx.fillStyle = 'rgba(86,150,26,0.08)';
+  ctx.fillRect(pad.l, bandTop, W-pad.l-pad.r, bandBot-bandTop);
+  ctx.strokeStyle = 'rgba(86,150,26,0.35)'; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l,bandTop); ctx.lineTo(W-pad.r,bandTop); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.l,bandBot); ctx.lineTo(W-pad.r,bandBot); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#56961A'; ctx.font = '9px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('Target 95–105%', pad.l+4, bandTop-4);
+
+  // Gridlines
+  for (var g = minV; g <= maxV; g += 10) {
+    var gy = yFor(g);
+    ctx.strokeStyle = 'rgba(5,12,77,0.06)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l,gy); ctx.lineTo(W-pad.r,gy); ctx.stroke();
+    ctx.fillStyle = '#8891A5'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(g+'%', pad.l-5, gy+3);
+  }
+
+  var gap = (W-pad.l-pad.r) / COMPA_DEPTS.length, bw = gap * 0.5;
+  COMPA_DEPTS.forEach(function(d,i){
+    var x = pad.l + i*gap + (gap-bw)/2;
+    var y = yFor(d.ratio);
+    var barH = (H-pad.b) - y;
+    var col = (d.ratio>=lo && d.ratio<=hi) ? '#56961A' : (d.ratio>=lo-8 && d.ratio<=hi+8) ? '#EF9F27' : '#E24B4A';
+    ctx.fillStyle = col;
+    if (ctx.roundRect) ctx.roundRect(x,y,bw,barH,3); else ctx.rect(x,y,bw,barH);
+    ctx.fill();
+    ctx.fillStyle = '#555D6E'; ctx.font = '9.5px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(d.short, x+bw/2, H-pad.b+13);
+    ctx.fillStyle = '#1A1A18'; ctx.font = 'bold 10px sans-serif';
+    ctx.fillText(d.ratio+'%', x+bw/2, y-4);
+  });
+}
+
+// ── Chart helpers ──────────────────────────────────────────
+function drawBarV(id, labels, vals, col, W, H) {
+  var c=document.getElementById(id); if(!c)return;
+  var ctx=c.getContext('2d');
+  var pad={t:10,r:10,b:44,l:34};
+  var maxV=Math.max.apply(null,vals);
+  var bw=(W-pad.l-pad.r)/labels.length*0.6, gap=(W-pad.l-pad.r)/labels.length;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,W,H);
+  for(var g=0;g<=maxV;g+=Math.ceil(maxV/4)){
+    var gy=pad.t+(H-pad.t-pad.b)*(1-g/maxV);
+    ctx.strokeStyle='rgba(5,12,77,0.08)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.l,gy); ctx.lineTo(W-pad.r,gy); ctx.stroke();
+    ctx.fillStyle='#555D6E'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+    ctx.fillText(g,pad.l-4,gy+3);
+  }
+  vals.forEach(function(v,i){
+    var x=pad.l+i*gap+(gap-bw)/2, barH=(H-pad.t-pad.b)*(v/maxV), y=H-pad.b-barH;
+    ctx.fillStyle=col;
+    if(ctx.roundRect) ctx.roundRect(x,y,bw,barH,3); else ctx.rect(x,y,bw,barH);
+    ctx.fill();
+    var lbl=labels[i]; if(lbl.length>7) lbl=lbl.slice(0,6)+'..';
+    ctx.fillStyle='#8B92A5'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(lbl,x+bw/2,H-pad.b+12);
+    if(v>0){ctx.fillStyle='#fff'; ctx.font='bold 10px sans-serif'; ctx.fillText(v,x+bw/2,y+barH/2+4);}
+  });
+}
+
+function drawBarH(id, W, H, labels, vals, col) {
+  var c=document.getElementById(id); if(!c)return;
+  var ctx=c.getContext('2d');
+  var pad={t:8,r:40,b:8,l:80};
+  var maxV=Math.max.apply(null,vals);
+  var bh=(H-pad.t-pad.b)/labels.length*0.6, gap=(H-pad.t-pad.b)/labels.length;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,W,H);
+  labels.forEach(function(lbl,i){
+    var y=pad.t+i*gap+(gap-bh)/2, barW=(W-pad.l-pad.r)*(vals[i]/maxV);
+    ctx.fillStyle=col+'22'; ctx.fillRect(pad.l,y,W-pad.l-pad.r,bh);
+    ctx.fillStyle=col;
+    if(ctx.roundRect) ctx.roundRect(pad.l,y,barW,bh,3); else ctx.rect(pad.l,y,barW,bh);
+    ctx.fill();
+    ctx.fillStyle='#8B92A5'; ctx.font='11px sans-serif'; ctx.textAlign='right';
+    ctx.fillText(lbl,pad.l-6,y+bh/2+4);
+    ctx.fillStyle=barW>28?'#fff':'#333'; ctx.font='bold 11px sans-serif'; ctx.textAlign='left';
+    ctx.fillText(vals[i], barW>28 ? pad.l+barW-22 : pad.l+barW+4, y+bh/2+4);
+  });
+}
+
+function drawPieChart(id, W, H, data) {
+  var c=document.getElementById(id); if(!c)return;
+  var ctx=c.getContext('2d');
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,W,H);
+  var total=data.reduce(function(a,d){return a+d.v;},0);
+  var cx=W*0.38, cy=H*0.48, r=Math.min(W,H)*0.36;
+  var start=-Math.PI/2;
+  data.forEach(function(d){
+    var angle=Math.PI*2*(d.v/total);
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,start+angle); ctx.closePath();
+    ctx.fillStyle=d.col; ctx.fill();
+    ctx.strokeStyle='#F5F5F2'; ctx.lineWidth=1.5; ctx.stroke();
+    start+=angle;
+  });
+  var lx=W*0.68, ly=12, lh=15;
+  data.forEach(function(d,i){
+    ctx.fillStyle=d.col; ctx.fillRect(lx,ly+i*lh,9,9);
+    ctx.fillStyle='#444'; ctx.font='10px sans-serif'; ctx.textAlign='left';
+    ctx.fillText(d.l+' '+d.v+'%', lx+12, ly+i*lh+8);
+  });
+}
+
+// ── World Map ──────────────────────────────────────────────
+var MAP_VIEW = 'team';
+var mapInitDone = false;
+
+var TEAM_LOCATIONS = [
+  {city:'Dublin',       country:'Ireland',      lat:53.33, lon:-6.25,  count:4,  dept:'Engineering'},
+  {city:'London',       country:'UK',           lat:51.51, lon:-0.12,  count:6,  dept:'Sales & Marketing'},
+  {city:'Warsaw',       country:'Poland',       lat:52.23, lon:21.01,  count:8,  dept:'Engineering'},
+  {city:'Kraków',       country:'Poland',       lat:50.06, lon:19.94,  count:5,  dept:'Engineering'},
+  {city:'Barcelona',    country:'Spain',        lat:41.39, lon:2.16,   count:3,  dept:'Product'},
+  {city:'Lisbon',       country:'Portugal',     lat:38.72, lon:-9.14,  count:4,  dept:'Support'},
+  {city:'Bangalore',    country:'India',        lat:12.97, lon:77.59,  count:7,  dept:'Engineering'},
+  {city:'Toronto',      country:'Canada',       lat:43.70, lon:-79.42, count:2,  dept:'Sales'},
+  {city:'São Paulo',    country:'Brazil',       lat:-23.55,lon:-46.63, count:3,  dept:'Sales'},
+  {city:'Singapore',    country:'Singapore',    lat:1.35,  lon:103.82, count:2,  dept:'Support'},
+  {city:'Prague',       country:'Czech Rep.',   lat:50.08, lon:14.44,  count:4,  dept:'Finance'},
+  {city:'Amsterdam',    country:'Netherlands',  lat:52.37, lon:4.90,   count:3,  dept:'Marketing'},
+];
+var CANDIDATE_LOCATIONS = [
+  {city:'Berlin',       country:'Germany',      lat:52.52, lon:13.40,  count:3,  dept:'Active candidates'},
+  {city:'Paris',        country:'France',       lat:48.86, lon:2.35,   count:2,  dept:'Active candidates'},
+  {city:'New York',     country:'USA',          lat:40.71, lon:-74.01, count:4,  dept:'Active candidates'},
+  {city:'Mumbai',       country:'India',        lat:19.08, lon:72.88,  count:5,  dept:'Active candidates'},
+  {city:'Sydney',       country:'Australia',    lat:-33.87,lon:151.21, count:2,  dept:'Active candidates'},
+  {city:'Madrid',       country:'Spain',        lat:40.42, lon:-3.70,  count:2,  dept:'Active candidates'},
+  {city:'Stockholm',    country:'Sweden',       lat:59.33, lon:18.07,  count:1,  dept:'Active candidates'},
+  {city:'Buenos Aires', country:'Argentina',    lat:-34.61,lon:-58.38, count:1,  dept:'Active candidates'},
+];
+
+function setMapView(v, btn) {
+  MAP_VIEW = v;
+  document.querySelectorAll('.map-ctrl').forEach(function(b){b.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+  renderMapDots();
+  buildMapSidebar();
+}
+
+function initMap() {
+  if(mapInitDone) { renderMapDots(); return; }
+  mapInitDone = true;
+
+  var wrap = document.querySelector('.map-wrap');
+  var W = wrap.clientWidth || 820;
+  var H = Math.round(W * 0.52);
+
+  var svg = d3.select('#map-svg')
+    .attr('viewBox', '0 0 ' + W + ' ' + H)
+    .attr('width', W)
+    .attr('height', H);
+
+  var proj = d3.geoNaturalEarth1()
+    .scale(W / 6.1)
+    .translate([W / 2, H / 2]);
+
+  var path = d3.geoPath().projection(proj);
+
+  // Ocean
+  svg.append('rect').attr('width', W).attr('height', H).attr('fill', '#E9EEFB');
+
+  var g = svg.append('g').attr('class', 'countries');
+  var dots = svg.append('g').attr('class', 'dots');
+
+  // Load world topo
+  d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(function(world) {
+    var countries = topojson.feature(world, world.objects.countries);
+    g.selectAll('path')
+      .data(countries.features)
+      .enter().append('path')
+      .attr('d', path)
+      .attr('fill', '#E3E7F0')
+      .attr('stroke', '#C9D0E2')
+      .attr('stroke-width', 0.4);
+
+    g.append('path')
+      .datum(topojson.mesh(world, world.objects.countries, function(a,b){return a!==b;}))
+      .attr('d', path)
+      .attr('fill', 'none')
+      .attr('stroke', '#C9D0E2')
+      .attr('stroke-width', 0.4);
+
+    renderMapDots(proj, dots, W, H);
+  }).catch(function() {
+    // Fallback: plain graticule if CDN fails
+    var graticule = d3.geoGraticule()();
+    g.append('path').datum(graticule)
+      .attr('d', path).attr('fill','none').attr('stroke','#A8C8E0').attr('stroke-width',0.4);
+    var sphere = {type:'Sphere'};
+    g.insert('path','path').datum(sphere).attr('d',path).attr('fill','#C8DCF0');
+    renderMapDots(proj, dots, W, H);
+  });
+
+  // Zoom + pan
+  var zoom = d3.zoom()
+    .scaleExtent([0.8, 8])
+    .on('zoom', function(event) {
+      g.attr('transform', event.transform);
+      dots.attr('transform', event.transform);
+    });
+  svg.call(zoom);
+
+  // Store proj/dots on svg node for re-renders
+  svg.node().__proj = proj;
+  svg.node().__dots = dots;
+  svg.node().__W = W;
+  svg.node().__H = H;
+}
+
+function renderMapDots(proj, dots, W, H) {
+  var svgNode = document.getElementById('map-svg');
+  if(!svgNode || !svgNode.__proj) return;
+  proj = proj || svgNode.__proj;
+  dots = dots || d3.select(svgNode.__dots);
+  W = W || svgNode.__W;
+  H = H || svgNode.__H;
+
+  dots.selectAll('*').remove();
+
+  var locs = [];
+  if(MAP_VIEW === 'team' || MAP_VIEW === 'both') {
+    TEAM_LOCATIONS.forEach(function(l){ locs.push({loc:l, col:'#2B5AC9', outline:'#1A3D8A'}); });
+  }
+  if(MAP_VIEW === 'candidates' || MAP_VIEW === 'both') {
+    CANDIDATE_LOCATIONS.forEach(function(l){ locs.push({loc:l, col:'#E24B4A', outline:'#A02020'}); });
+  }
+
+  var popup = document.getElementById('map-popup');
+  var mapWrap = document.querySelector('.map-wrap');
+
+  locs.forEach(function(item) {
+    var xy = proj([item.loc.lon, item.loc.lat]);
+    if(!xy) return;
+    var r = Math.max(7, Math.min(22, item.loc.count * 3.2));
+
+    var circle = dots.append('circle')
+      .attr('cx', xy[0]).attr('cy', xy[1]).attr('r', r)
+      .attr('fill', item.col).attr('fill-opacity', 0.78)
+      .attr('stroke', item.outline).attr('stroke-width', 1.8)
+      .style('cursor', 'pointer');
+
+    if(item.loc.count > 1) {
+      dots.append('text')
+        .attr('x', xy[0]).attr('y', xy[1] + 4)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#fff')
+        .attr('font-size', r > 12 ? 11 : 9)
+        .attr('font-weight', 'bold')
+        .attr('pointer-events', 'none')
+        .text(item.loc.count);
+    }
+
+    circle.on('mouseover', function(event) {
+      var label = item.loc.count + ' ' + (item.loc.dept === 'Active candidates' ? 'candidate' + (item.loc.count>1?'s':'') : 'team member' + (item.loc.count>1?'s':''));
+      popup.innerHTML = '<strong>' + item.loc.city + '</strong>, ' + item.loc.country
+        + '<br>' + label
+        + '<br><span style="color:#8891A5;font-size:11px;">' + item.loc.dept + '</span>';
+      popup.style.display = 'block';
+    }).on('mousemove', function(event) {
+      var rect = mapWrap.getBoundingClientRect();
+      var px = event.clientX - rect.left + 12;
+      var py = event.clientY - rect.top - 10;
+      if(px + 180 > rect.width) px = px - 200;
+      popup.style.left = px + 'px';
+      popup.style.top = py + 'px';
+    }).on('mouseout', function() {
+      popup.style.display = 'none';
+    });
+  });
+
+  // Legend
+  var leg = document.getElementById('map-legend-el');
+  if(MAP_VIEW === 'both') {
+    leg.innerHTML = '<span class="map-legend-pill" style="background:#EBF1FB;color:#1A3D8A;"><span style="width:10px;height:10px;background:#2B5AC9;border-radius:50%;display:inline-block;margin-right:4px;"></span>Team</span>'
+      + ' <span class="map-legend-pill" style="background:#FDECEC;color:#A02020;"><span style="width:10px;height:10px;background:#E24B4A;border-radius:50%;display:inline-block;margin-right:4px;"></span>Candidates</span>';
+  } else if(MAP_VIEW === 'team') {
+    leg.innerHTML = '<span class="map-legend-pill" style="background:#EBF1FB;color:#1A3D8A;"><span style="width:10px;height:10px;background:#2B5AC9;border-radius:50%;display:inline-block;margin-right:4px;"></span>Team members</span>';
+  } else {
+    leg.innerHTML = '<span class="map-legend-pill" style="background:#FDECEC;color:#A02020;"><span style="width:10px;height:10px;background:#E24B4A;border-radius:50%;display:inline-block;margin-right:4px;"></span>Active candidates</span>';
+  }
+}
+
+function buildMapSidebar() {
+  var el = document.getElementById('map-sidebar-el');
+  var locs = MAP_VIEW === 'candidates' ? CANDIDATE_LOCATIONS : TEAM_LOCATIONS;
+  if(MAP_VIEW === 'both') locs = TEAM_LOCATIONS.concat(CANDIDATE_LOCATIONS);
+  el.innerHTML = locs.slice().sort(function(a,b){return b.count-a.count;}).map(function(l) {
+    var col = l.dept === 'Active candidates' ? '#E24B4A' : '#2B5AC9';
+    return '<div class="map-loc-row">'
+      + '<div class="map-loc-left"><div class="map-loc-dot" style="background:' + col + ';"></div>'
+      + '<span>' + l.city + ', ' + l.country + '</span></div>'
+      + '<span class="map-loc-count">' + l.count + '</span></div>';
+  }).join('');
+}
+
+</script>
+</body>
+</html>
